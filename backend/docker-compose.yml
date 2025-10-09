@@ -73,3 +73,17 @@ services:
       - redis
       - db
       - web
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules # Prevent overriding node_modules
+    command: yarn dev
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    ports:
+      - "80:3000"
