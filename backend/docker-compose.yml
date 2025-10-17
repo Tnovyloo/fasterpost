@@ -1,17 +1,29 @@
-version: '3.8'
+
 services:
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: proj
-      POSTGRES_PASSWORD: projpassword
-      POSTGRES_DB: projdb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      retries: 5
+
   mongo:
     image: mongo:6
     ports:
@@ -23,42 +35,32 @@ services:
       - .:/app
     ports:
       - "8000:8000"
-    environment:
-      - DEBUG=1
-      - SECRET_KEY=changeme
-      - POSTGRES_DB=projdb
-      - POSTGRES_USER=proj
-      - POSTGRES_PASSWORD=projpassword
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - MONGO_HOST=mongo
-      - MONGO_PORT=27017
-      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
     depends_on:
-      - db
-      - redis
-      - mongo
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongo:
+        condition: service_started
 
   worker:
     build: .
     command: ["sh", "-c", "celery -A proj worker --loglevel=info"]
     volumes:
       - .:/app
-    environment:
-      - DEBUG=1
-      - SECRET_KEY=changeme
-      - POSTGRES_DB=projdb
-      - POSTGRES_USER=proj
-      - POSTGRES_PASSWORD=projpassword
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - MONGO_HOST=mongo
-      - MONGO_PORT=27017
-      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    # environment:
+    #   - LOGS_OFF=1
     depends_on:
-      - db
-      - redis
-      - mongo
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongo:
+        condition: service_started
 
   beat:
     build: .
@@ -69,10 +71,17 @@ services:
       "
     volumes:
       - ./celerybeat-schedule:/app/celerybeat-schedule
+    env_file:
+      - .env
+    # environment:
+    #   - LOGS_OFF=1
     depends_on:
-      - redis
-      - db
-      - web
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongo:
+        condition: service_started
 
   frontend:
     build:

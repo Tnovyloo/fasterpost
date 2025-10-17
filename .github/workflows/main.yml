@@ -1,0 +1,49 @@
+name: Django CI
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+
+  build:
+    services:
+      docker:
+        image: docker:20.10.5
+        ports:
+          - 2375:2375
+        options: --privileged
+
+    env:
+      DJANGO_SECRET: wdb_(-1ahyve(^k&5mhy-wnxmh*%mz@8fhvo+m)nqby&&_6r63
+      DEBUG: True
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+#    - name: Set up Docker Compose
+#      uses: docker/compose-cli-action@v1.0.35
+#      with:
+#        compose-file: ./auctions_site/docker-compose.yml  # Change to your Docker Compose file location
+
+    - name: Set up Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: Run Django tests
+      run: |
+        pwd
+        ls -la
+        cd backend
+        ls -la
+        docker-compose run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py makemigrations"
+        docker-compose run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py migrate"
+        docker-compose run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py test"
