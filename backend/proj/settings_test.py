@@ -1,7 +1,7 @@
 # proj/settings_test.py
 from .settings import *
 
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 # Use a separate test database

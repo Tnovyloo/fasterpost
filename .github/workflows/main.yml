@@ -38,46 +38,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y docker-compose
 
-    # - name: Run Django tests
-    #   run: |
-    #     pwd
-    #     ls -la
-    #     cd backend
-    #     ls -la
-    #     docker-compose -f test.yml run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py makemigrations"
-    #     docker-compose -f test.yml run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py migrate"
-    #     docker-compose -f test.yml run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py test"
-
-    - name: Run Docker Compose services and tests
+    - name: Run Django tests
       run: |
         pwd
         ls -la
         cd backend
         ls -la
-        
-        # 1. Start all services in detached mode
-        docker-compose -f test.yml up -d
-
-        # 2. Wait for all dependencies and the web service to be healthy (optional but good practice)
-        # We need to explicitly wait for web to be healthy, as tests rely on it.
-        # Note: You can skip this step if you prefer to rely on 'docker-compose up -d' 
-        # but the explicit wait ensures services are truly ready.
-        echo "Waiting for all services to be healthy..."
-        docker-compose -f test.yml ps
-
-        # 3. Run database migrations on a temporary container (this is safer than running them 
-        # as part of the persistent 'web' container's entrypoint during a test run)
-        echo "Running migrations..."
-        docker-compose -f test.yml run --rm web sh -c "
-          DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py migrate --noinput
-        "
-        
-        # 4. Run the tests on a temporary container. 
-        # By using 'run', dependencies are checked, and a fresh container is used.
-        echo "Running tests..."
-        docker-compose -f test.yml run --rm web sh -c "
-          DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py test
-        "
-
-        # 5. Stop the services
-        docker-compose -f test.yml down
+        docker-compose -f test.yml run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py makemigrations"
+        docker-compose -f test.yml run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py migrate"
+        docker-compose -f test.yml run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py test"

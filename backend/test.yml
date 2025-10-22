@@ -26,14 +26,6 @@ services:
     image: mongo:6
     ports:
       - "27017:27017"
-    env_file:
-      - .env.example
-    healthcheck:
-      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      retries: 5
-      start_period: 10s
-
   web:
     build: .
     command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
@@ -47,9 +39,9 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        condition: service_started
       mongo:
-        condition: service_healthy
+        condition: service_started
 
   worker:
     build: .
@@ -64,9 +56,9 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        condition: service_started
       mongo:
-        condition: service_healthy
+        condition: service_started
 
   beat:
     build: .
@@ -85,11 +77,10 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        condition: service_started
       mongo:
-        condition: service_healthy
+        condition: service_started
 
-# For that point, we dont need to check if frontend container compiles itself.
   # frontend:
   #   build:
   #     context: ../frontend
