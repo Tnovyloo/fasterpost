@@ -50,6 +50,11 @@ jobs:
 
     - name: Run Docker Compose services and tests
       run: |
+        pwd
+        ls -la
+        cd backend
+        ls -la
+        
         # 1. Start all services in detached mode
         docker-compose -f test.yml up -d
 
