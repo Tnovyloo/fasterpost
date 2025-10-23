@@ -108,10 +108,11 @@ TOKEN_EXPIRY_DAYS = 2
 
 # EMAIL AUTHORIZATION DOMAIN PATH
 DOMAIN_EMAIL_AUTHORIZATION = os.environ.get(
-    "DOMAIN_EMAIL_AUTHORIZATION", "http://localhost:8000/accounts/verify/"
+    "DOMAIN_EMAIL_AUTHORIZATION", "http://localhost:8000/accounts/user/verify/"
 )
 DOMAIN_PASSWORD_RESET = os.environ.get(
-    "DOMAIN_PASSWORD_RESET", "http://localhost:8000/accounts/password-reset-verify/"
+    "DOMAIN_PASSWORD_RESET",
+    "http://localhost:8000/accounts/user/password-reset-verify/",
 )
 
 # SET GMAIL SMTP

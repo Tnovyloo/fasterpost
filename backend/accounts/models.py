@@ -82,6 +82,14 @@ class MyAccountManager(BaseUserManager):
 
 
 class User(AbstractBaseUser):
+    class Roles(models.TextChoices):
+        NORMAL = "normal", "Normal User"
+        COURIER = "courier", "Courier"
+        WAREHOUSE_COURIER = "warehouse", "Warehouse Courier"
+        BUSINESS = "business", "Business User"
+
+    role = models.CharField(max_length=20, choices=Roles.choices, default=Roles.NORMAL)
+
     first_name = models.CharField(max_length=50, default=None, blank=True, null=True)
     last_name = models.CharField(max_length=50, default=None, blank=True, null=True)
     email = models.EmailField(max_length=100, unique=True)

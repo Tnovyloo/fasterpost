@@ -20,7 +20,7 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes, force_str
 from django.utils.timezone import now, timedelta
 
-from .models import ExpiringToken as Token
+from ..models import ExpiringToken as Token
 
 
 User = get_user_model()
@@ -29,15 +29,15 @@ User = get_user_model()
 class AuthenticationAPITestCase(APITestCase):
     def setUp(self):
         # Get URLs to test rest API
-        self.register_url = reverse("register")
-        self.login_url = reverse("login")
-        self.logout_url = reverse("logout")
-        self.verification_url_pattern = r"http://localhost:8000/accounts/verify/\w+/\w+"
-        self.resend_verification_email_url = reverse("resend-verification-email")
-        self.reset_password_url = reverse("password-reset")
-        self.password_reset_url_pattern = (
-            r"http://localhost:8000/accounts/password-reset-verify/\w+/[a-fA-F0-9]+"
+        self.register_url = reverse("user-register")
+        self.login_url = reverse("user-login")
+        self.logout_url = reverse("user-logout")
+        self.verification_url_pattern = (
+            r"http://localhost:8000/accounts/user/verify/\w+/\w+"
         )
+        self.resend_verification_email_url = reverse("user-resend-verification-email")
+        self.reset_password_url = reverse("user-password-reset")
+        self.password_reset_url_pattern = r"http://localhost:8000/accounts/user/password-reset-verify/\w+/[a-fA-F0-9]+"
 
         # Set up client
         self.client = APIClient()
