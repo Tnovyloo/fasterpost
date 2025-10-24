@@ -108,14 +108,18 @@ TOKEN_EXPIRY_DAYS = 2
 
 # EMAIL AUTHORIZATION DOMAIN PATH
 DOMAIN_EMAIL_AUTHORIZATION = os.environ.get(
-    "DOMAIN_EMAIL_AUTHORIZATION", "http://localhost:8000/accounts/verify/"
+    "DOMAIN_EMAIL_AUTHORIZATION", "http://localhost:8000/accounts/user/verify/"
 )
 DOMAIN_PASSWORD_RESET = os.environ.get(
-    "DOMAIN_PASSWORD_RESET", "http://localhost:8000/accounts/password-reset-verify/"
+    "DOMAIN_PASSWORD_RESET",
+    "http://localhost:8000/accounts/user/password-reset-verify/",
 )
 
 # SET GMAIL SMTP
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND")
+EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_FILE_PATH = BASE_DIR / "sent_emails"
+
+# EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND") # Use it if you want to use Gmail or other SMTP.
 EMAIL_HOST = os.environ.get("EMAIL_HOST")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS")
 EMAIL_PORT = os.environ.get("EMAIL_PORT")
