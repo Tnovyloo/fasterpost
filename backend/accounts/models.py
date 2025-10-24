@@ -124,10 +124,6 @@ class User(AbstractBaseUser):
         db_table = "auth_user"
 
 
-class UserProfile(models.Model):
-    pass
-
-
 class EmailVerification(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

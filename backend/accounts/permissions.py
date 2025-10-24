@@ -2,53 +2,41 @@ from rest_framework.permissions import BasePermission
 from accounts.models import User
 
 
-class IsCourier(BasePermission):
+class HasRolePermission(BasePermission):
     """
-    Allows access only to users with the 'courier' role.
+    Base permission class that allows access if the user's role
+    is in the allowed_roles list.
     """
 
+    allowed_roles: list[str] = []
+
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == User.Roles.COURIER
+        user = request.user
+        return (
+            bool(user and user.is_authenticated)
+            and getattr(user, "role", None) in self.allowed_roles
         )
 
 
-class IsWarehouseCourier(BasePermission):
+class IsCourier(HasRolePermission):
+    allowed_roles = [User.Roles.COURIER]
+
+
+class IsWarehouseCourier(HasRolePermission):
+    allowed_roles = [User.Roles.WAREHOUSE_COURIER]
+
+
+class IsBusinessUser(HasRolePermission):
+    allowed_roles = [User.Roles.BUSINESS]
+
+
+class IsNormalUser(HasRolePermission):
+    allowed_roles = [User.Roles.NORMAL]
+
+
+class IsCourierOrWarehouse(HasRolePermission):
     """
-    Allows access only to users with the 'warehouse' role.
-    """
-
-    def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == User.Roles.WAREHOUSE_COURIER
-        )
-
-
-class IsBusinessUser(BasePermission):
-    """
-    Allows access only to users with the 'business' role.
-    """
-
-    def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == User.Roles.BUSINESS
-        )
-
-
-class IsNormalUser(BasePermission):
-    """
-    Allows access only to users with the 'normal' role.
+    Example: combined role permission
     """
 
-    def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == User.Roles.NORMAL
-        )
+    allowed_roles = [User.Roles.COURIER, User.Roles.WAREHOUSE_COURIER]
