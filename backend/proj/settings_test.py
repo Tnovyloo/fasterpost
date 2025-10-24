@@ -21,7 +21,7 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 # Email backend to prevent sending real emails
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-
+EMAIL_SEND_ASYNC = False  # <- Lets say, that we use synchronic email test.
 
 AUTH_PASSWORD_VALIDATORS = [
     {
