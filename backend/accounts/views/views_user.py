@@ -2,30 +2,31 @@ from email.message import EmailMessage
 from encodings.punycode import T
 from urllib import response
 from django.shortcuts import render
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.authentication import TokenAuthentication
 from django.contrib.auth import authenticate
-from accounts.serializers import *
-from rest_framework import status
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ObjectDoesNotExist
 
-from accounts.utils import send_password_reset_email, send_verification_email
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.authentication import TokenAuthentication
+from rest_framework import status
+
 from django.contrib.sites.shortcuts import get_current_site
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes, force_str
 
 # from rest_framework.authtoken.models import Token
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ObjectDoesNotExist
 
+from accounts.utils import send_password_reset_email, send_verification_email
+from accounts.tasks import send_password_reset_email_task, send_verification_email_task
 from accounts.authentication import CustomTokenAuthentication
+from accounts.serializers import *
 
 from ..models import ExpiringToken as Token
-
 
 UserModel = get_user_model()
 
@@ -271,23 +272,31 @@ class RegisterView(APIView):
                     data={"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
                 )
 
-            sended_email = send_verification_email(user=user)
-            if sended_email:
+            if getattr(settings, "EMAIL_SEND_ASYNC", False):
+                send_verification_email_task.delay(user.id)
+
                 return Response(
-                    data={
-                        "user": validated_data["email"],
-                        "status": "Verification e-mail sended.",
-                    },
+                    {"status": "Verification e-mail is being sent"},
                     status=status.HTTP_200_OK,
                 )
             else:
-                return Response(
-                    data={
-                        "user": validated_data["email"],
-                        "status": "Sending verification e-mail function encounter problem",
-                    },
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
-                )
+                sended_email = send_verification_email(user=user)
+                if sended_email:
+                    return Response(
+                        data={
+                            "user": validated_data["email"],
+                            "status": "Verification e-mail sended.",
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    return Response(
+                        data={
+                            "user": validated_data["email"],
+                            "status": "Sending verification e-mail function encounter problem",
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
 
         else:
             return Response(
@@ -327,21 +336,32 @@ class ResendRegisterView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            sended_email = send_verification_email(user=user)
+            if getattr(settings, "EMAIL_SEND_ASYNC", False):
+                send_verification_email_task.delay(user.id)
 
-            if sended_email:
                 return Response(
-                    data={"user": validated_data["email"], "status": "Sended e-mail!"},
+                    {"status": "Verification e-mail is being sent"},
                     status=status.HTTP_200_OK,
                 )
             else:
-                return Response(
-                    data={
-                        "user": validated_data["email"],
-                        "status": "Sending verification e-mail function encounter problem",
-                    },
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
-                )
+                sended_email = send_verification_email(user=user)
+
+                if sended_email:
+                    return Response(
+                        data={
+                            "user": validated_data["email"],
+                            "status": "Sended e-mail!",
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    return Response(
+                        data={
+                            "user": validated_data["email"],
+                            "status": "Sending verification e-mail function encounter problem",
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
 
         else:
             return Response(data=serializer.errors)
@@ -451,17 +471,25 @@ class PasswordResetView(APIView):
                     if user_password_tokens.exists():
                         user_password_tokens.delete()
 
-                    is_sended = send_password_reset_email(user=user)
-                    if is_sended:
+                    if getattr(settings, "EMAIL_SEND_ASYNC", False):
+                        send_password_reset_email_task.delay(user.id)
+
                         return Response(
-                            data={"status": "Password reset email was sended"},
+                            {"status": "Password reset email is being sent"},
                             status=status.HTTP_200_OK,
                         )
                     else:
-                        return Response(
-                            data={"error": "User is None"},
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
+                        is_sended = send_password_reset_email(user=user)
+                        if is_sended:
+                            return Response(
+                                data={"status": "Password reset email was sended"},
+                                status=status.HTTP_200_OK,
+                            )
+                        else:
+                            return Response(
+                                data={"error": "User is None"},
+                                status=status.HTTP_401_UNAUTHORIZED,
+                            )
                 else:
                     return Response(
                         data={"error": "User was not found"},

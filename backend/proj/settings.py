@@ -125,7 +125,11 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS")
 EMAIL_PORT = os.environ.get("EMAIL_PORT")
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
-
+EMAIL_SEND_ASYNC = os.environ.get("EMAIL_SEND_ASYNC", "False").lower() in (
+    "true",
+    "1",
+    "yes",
+)  # <--- This ENV variable decides on ASYNC sending from Celery.
 
 ########################################
 # This is printing .env variables and project dependencies
@@ -191,6 +195,7 @@ if not LOGS_OFF:
     print_env_var("EMAIL_PORT")
     print_env_var("EMAIL_HOST_USER")
     print_env_var("EMAIL_HOST_PASSWORD")
+    print_env_var("EMAIL_SEND_ASYNC")
 
     print(f"\n{CYAN}E-mail verification domains{RESET}")
     print_env_var("DOMAIN_EMAIL_AUTHORIZATION")
