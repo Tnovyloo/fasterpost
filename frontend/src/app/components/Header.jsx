@@ -55,15 +55,16 @@ export default function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex gap-6 text-blue-800 font-medium">
           <NavLink href="/">Strona główna</NavLink>
+          <NavLink href="/test-user">Test user</NavLink>    
           {!isLoggedIn && <NavLink href="/login">Logowanie</NavLink>}
           {!isLoggedIn && <NavLink href="/register">Rejestracja</NavLink>}
           {isLoggedIn && (
-            <button
-              onClick={handleLogout}
-              className="text-blue-700 hover:text-blue-900 font-medium transition"
-            >
-              Wyloguj się
-            </button>
+                <button
+                onClick={handleLogout}
+                className="text-blue-700 hover:text-blue-900 font-medium transition"
+                >
+                Wyloguj się
+                </button>
           )}
         </nav>
 
