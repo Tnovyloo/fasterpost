@@ -16,12 +16,15 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "django_celery_beat",
+    "corsheaders",
     # "rest_framework.authtoken",  # For Token authorization.
     "accounts",
     "drf_spectacular",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -31,6 +34,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 ROOT_URLCONF = "proj.urls"
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # or your Next.js dev server
+    "http://localhost",  # if your app runs on this
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
 
 TEMPLATES = [
     {
@@ -84,7 +95,7 @@ CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 100,
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "accounts.authentication.CustomTokenAuthentication",
         # 'rest_framework.authentication.TokenAuthentication',

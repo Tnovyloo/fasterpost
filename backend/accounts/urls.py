@@ -29,4 +29,5 @@ urlpatterns = [
     path("courier", views_courier.CourierDashboardView.as_view()),
     path("bussiness", views_courier.BusinessDashboardView.as_view()),
     path("base", views_courier.NormalUserDashboardView.as_view()),
+    path("user/info/", views_courier.UserInfoView.as_view(), name="user-info"),
 ]
