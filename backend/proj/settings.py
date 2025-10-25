@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     # "rest_framework.authtoken",  # For Token authorization.
     "accounts",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
@@ -83,6 +84,7 @@ CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 100,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "accounts.authentication.CustomTokenAuthentication",
         # 'rest_framework.authentication.TokenAuthentication',
