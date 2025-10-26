@@ -23,7 +23,7 @@ export default function Header() {
       })
       .catch(() => setIsLoggedIn(false));
 
-      console.warn("Make it work better, without any request or smth");
+      console.warn("Make it work better, without any request or with some interceptor in AXIOS");
   }, []);
 
   const handleLogout = async () => {

@@ -123,7 +123,15 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <div className="text-black">TODO zrób 'zapomniałeś hasła</div>
+            <div className="text-sm text-center mt-4 text-blue-800">
+              Zapomniałes hasła?{" "}
+              <Link
+                href="/password-reset"
+                className="font-semibold text-blue-900 hover:underline"
+              >
+                Kliknij tutaj
+              </Link>
+            </div>
           </div>
         </div>
       </main>

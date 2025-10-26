@@ -34,6 +34,12 @@ def send_password_reset_email(user: AbstractBaseUser) -> bool:
             "domain": settings.DOMAIN_PASSWORD_RESET,
         }
 
+        if "test" in sys.argv:
+            print("TEST TEST")
+            email_context["backend_verify_url"] = (
+                f"http://localhost:8000/accounts/user/password-reset-verify/{uid}/{created_token}"
+            )
+
         message = render_to_string(
             "accounts/password_reset_email.html", context=email_context
         )
