@@ -1,3 +1,4 @@
+import sys
 from typing import Optional
 from accounts.serializers import *
 from rest_framework import status
@@ -83,6 +84,13 @@ def send_verification_email(user: AbstractBaseUser):
             "email": user.email,
             "domain": settings.DOMAIN_EMAIL_AUTHORIZATION,
         }
+
+        # Only add backend link when running tests
+        if "test" in sys.argv:
+            print("TEST TEST")
+            email_context["backend_verify_url"] = (
+                f"http://localhost:8000/accounts/user/verify/{uid}/{created_token}"
+            )
 
         message = render_to_string(
             "accounts/account_activate_email.html", context=email_context
