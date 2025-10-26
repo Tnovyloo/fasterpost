@@ -1,7 +1,7 @@
 from django.urls import path
 
-from .views.views_user import PostmatInfoView
+from .views.views_user import PostmatView
 
 urlpatterns = [
-    path("info", PostmatInfoView.as_view())
+    path("", PostmatView.as_view())
 ]
