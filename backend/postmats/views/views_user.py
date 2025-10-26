@@ -52,3 +52,16 @@ class PostmatView(APIView):
 
             except Postmat.DoesNotExist:
                 return Response({"error": "Postmat not found."}, status=status.HTTP_404_NOT_FOUND)
+           
+    def delete(self, request):
+        postmat_id = request.query_params.get('id', None)
+
+        if postmat_id:
+            try:
+                postmat = Postmat.objects.get(id=postmat_id)
+                postmat.delete()
+                
+                return Response(status=status.HTTP_204_NO_CONTENT)
+
+            except Postmat.DoesNotExist:
+                return Response({"error": "Postmat not found."}, status=status.HTTP_404_NOT_FOUND) 
