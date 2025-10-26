@@ -35,3 +35,20 @@ class PostmatView(APIView):
                 return Response({"error": "Postmat with this name already exists in the specified warehouse."}, status=status.HTTP_400_BAD_REQUEST)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request):
+        postmat_id = request.query_params.get('id', None)
+
+        if postmat_id:
+            try:
+                postmat = Postmat.objects.get(id=postmat_id)
+                serializer = PostmatSerializer(postmat, data=request.data, partial=True)
+
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    return Response(serializer.data)
+                
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
+
+            except Postmat.DoesNotExist:
+                return Response({"error": "Postmat not found."}, status=status.HTTP_404_NOT_FOUND)
