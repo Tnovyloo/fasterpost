@@ -1,6 +1,8 @@
 from rest_framework.views import APIView
 from accounts.permissions import *
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from accounts.serializers import UserUnSafeSerializerForTests
 
 
 class CourierDashboardView(APIView):
@@ -22,3 +24,12 @@ class NormalUserDashboardView(APIView):
 
     def get(self, request):
         return Response({"message": "Welcome, Client!"})
+
+
+class UserInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserUnSafeSerializerForTests(request.user)
+        print(request.user)
+        return Response(serializer.data)

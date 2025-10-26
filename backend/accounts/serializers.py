@@ -74,3 +74,20 @@ class PasswordResetVerifySerializer(serializers.Serializer):
             "verify_token",
             "uid",
         ]
+
+
+class UserUnSafeSerializerForTests(serializers.ModelSerializer):
+    """WARNING THIS IS JUST FOR DEV PURPOSES"""
+
+    class Meta:
+        model = User
+        fields = [
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "phone_number",
+            "date_joined",
+            "is_active",
+        ]
