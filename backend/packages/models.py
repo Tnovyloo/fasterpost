@@ -1,6 +1,9 @@
 from django.db import models
 import uuid
-import postmats, logistics
+
+from postmats.models import Postmat
+from logistics.models import Warehouse, Route
+from accounts.models import User
 
 class Package(models.Model):
     class PackageSize(models.TextChoices):
@@ -10,8 +13,8 @@ class Package(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pickup_code = models.CharField(max_length=10, blank=True, null=True)
-    origin_postmat = models.ForeignKey(postmats.Postmat, on_delete=models.CASCADE, related_name='origin_packages')
-    destination_postmat = models.ForeignKey(postmats.Postmat, on_delete=models.CASCADE, related_name='destination_packages')
+    origin_postmat = models.ForeignKey(Postmat, on_delete=models.CASCADE, related_name='origin_packages')
+    destination_postmat = models.ForeignKey(Postmat, on_delete=models.CASCADE, related_name='destination_packages')
     receiver_name = models.CharField(max_length=255)
     receiver_phone = models.CharField(max_length=20)
     size = models.CharField(max_length=10, choices=PackageSize.choices)
@@ -32,7 +35,7 @@ class Actualization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     package_id = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='actualizations')
     status = models.CharField(max_length=20, choices=PackageStatus.choices, default='created')
-    courier_id = models.ForeignKey('users.Courier', on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
-    warehouse_id = models.ForeignKey(logistics.Warehouse, on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
+    courier_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
+    warehouse_id = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
     route_remaining = models.JSONField(null=True, blank=True)
-    routes = models.ManyToManyField(logistics.Route, related_name='actualizations', blank=True)
+    routes = models.ManyToManyField(Route, related_name='actualizations', blank=True)
