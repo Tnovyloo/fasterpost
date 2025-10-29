@@ -20,6 +20,13 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes, force_str
 
 # from rest_framework.authtoken.models import Token
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+    OpenApiExample,
+    OpenApiResponse,
+    OpenApiParameter,
+)
 
 from accounts.utils import send_password_reset_email, send_verification_email
 from accounts.tasks import send_password_reset_email_task, send_verification_email_task
@@ -31,6 +38,52 @@ from ..models import ExpiringToken as Token
 UserModel = get_user_model()
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        summary="User Login",
+        description="Authenticate a user using email and password. Returns a token on success.",
+        request=UserLoginSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="User authenticated successfully.",
+                examples=[
+                    OpenApiExample(
+                        "Success Example",
+                        value={
+                            "status": "User authenticated",
+                            "token": "abcd1234token",
+                        },
+                    )
+                ],
+            ),
+            401: OpenApiResponse(
+                description="Invalid credentials or user not verified."
+            ),
+            404: OpenApiResponse(description="Invalid request data."),
+        },
+    ),
+    get=extend_schema(
+        tags=["Authentication"],
+        summary="Check Authentication Status",
+        description="Check if the current request user is authenticated.",
+        responses={
+            200: OpenApiResponse(
+                description="Authentication check response.",
+                examples=[
+                    OpenApiExample(
+                        "Authenticated Example",
+                        value={
+                            "is_auth": True,
+                            "message": "Post correct data to this endpoint to login.",
+                            "post_data": {"email": "string", "password": "string"},
+                        },
+                    )
+                ],
+            )
+        },
+    ),
+)
 class LoginView(APIView):
     """APIView for user login."""
 
@@ -120,6 +173,27 @@ class LoginView(APIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Check Logout Availability",
+        tags=["Authentication"],
+        description="Verify if the user is authorized before logout.",
+        responses={
+            200: OpenApiResponse(description="User is authorized."),
+            401: OpenApiResponse(description="User is anonymous."),
+        },
+    ),
+    post=extend_schema(
+        summary="Logout User",
+        tags=["Authentication"],
+        description="Deletes user’s authentication token and clears the cookie.",
+        responses={
+            200: OpenApiResponse(description="Token destroyed."),
+            404: OpenApiResponse(description="Token not found."),
+            401: OpenApiResponse(description="User is anonymous."),
+        },
+    ),
+)
 class LogoutView(APIView):
     authentication_classes = [CustomTokenAuthentication]
 
@@ -169,6 +243,37 @@ class LogoutView(APIView):
             )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get Registration Info",
+        tags=["Authentication"],
+        description="Returns expected POST fields for registration.",
+        responses={200: OpenApiResponse(description="Registration data info.")},
+    ),
+    post=extend_schema(
+        summary="Register New User",
+        tags=["Authentication"],
+        description="Creates a new user and sends a verification email.",
+        request=UserRegisterSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Verification email sent.",
+                examples=[
+                    OpenApiExample(
+                        "Success Example",
+                        value={
+                            "user": "example@example.com",
+                            "status": "Verification e-mail sent.",
+                        },
+                    )
+                ],
+            ),
+            406: OpenApiResponse(description="User already exists."),
+            401: OpenApiResponse(description="E-mail not verified."),
+            404: OpenApiResponse(description="Invalid or missing fields."),
+        },
+    ),
+)
 class RegisterView(APIView):
     """APIView for registering user."""
 
@@ -305,6 +410,25 @@ class RegisterView(APIView):
             )
 
 
+@extend_schema(
+    summary="Resend Verification Email",
+    tags=["Authentication"],
+    description="Resends a verification email to a user who has not yet verified their account.",
+    request=ResendTokenSerializer,
+    responses={
+        200: OpenApiResponse(
+            description="Verification email sent successfully.",
+            examples=[
+                OpenApiExample(
+                    "Success Example",
+                    value={"user": "user@example.com", "status": "Sended e-mail!"},
+                )
+            ],
+        ),
+        404: OpenApiResponse(description="User not found."),
+        503: OpenApiResponse(description="Email sending failed."),
+    },
+)
 class ResendRegisterView(APIView):
     """APIView for resending verification e-mail to user."""
 
@@ -367,6 +491,44 @@ class ResendRegisterView(APIView):
             return Response(data=serializer.errors)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Retrieve Verification Data",
+        tags=["Authentication"],
+        description="Retrieve UID and token parameters from the verification link.",
+        parameters=[
+            OpenApiParameter(
+                name="uid",
+                description="Base64-encoded user ID",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="token", description="Verification token", required=True, type=str
+            ),
+        ],
+        responses={200: OpenApiResponse(description="Verification data returned.")},
+    ),
+    post=extend_schema(
+        summary="Verify User Email",
+        tags=["Authentication"],
+        description="Verify a user's email address using UID and token.",
+        request=UserVerifyToken,
+        responses={
+            200: OpenApiResponse(
+                description="User verified successfully.",
+                examples=[
+                    OpenApiExample(
+                        "Verified Example",
+                        value={"status": "User verified", "token": "abcd1234token"},
+                    )
+                ],
+            ),
+            400: OpenApiResponse(description="Invalid or expired token."),
+            404: OpenApiResponse(description="User not found."),
+        },
+    ),
+)
 class VerifyView(APIView):
     """APIView for veryfing user email"""
 
@@ -442,6 +604,18 @@ class VerifyView(APIView):
         return Response(data=serializer.errors, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema(
+    summary="Request Password Reset",
+    tags=["Authentication"],
+    description="Sends a password reset email if the user exists and is verified.",
+    request=PasswordResetSerializer,
+    responses={
+        200: OpenApiResponse(description="Password reset email sent."),
+        401: OpenApiResponse(description="E-mail not verified."),
+        404: OpenApiResponse(description="User not found."),
+        503: OpenApiResponse(description="Email sending failed."),
+    },
+)
 class PasswordResetView(APIView):
     """APIView for sending reset password e-mail."""
 
@@ -507,6 +681,37 @@ class PasswordResetView(APIView):
             return Response(data=serializer.errors, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Authentication"],
+        summary="Retrieve Password Reset Data",
+        description="Retrieve UID and token from the reset link.",
+        parameters=[
+            OpenApiParameter(
+                name="uid",
+                description="Base64-encoded user ID",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="token", description="Reset token", required=True, type=str
+            ),
+        ],
+        responses={200: OpenApiResponse(description="Password reset data returned.")},
+    ),
+    post=extend_schema(
+        summary="Confirm Password Reset",
+        tags=["Authentication"],
+        description="Resets the user's password after verifying UID and token.",
+        request=PasswordResetVerifySerializer,
+        responses={
+            200: OpenApiResponse(description="Password reset successfully."),
+            400: OpenApiResponse(description="Passwords don't match or invalid token."),
+            404: OpenApiResponse(description="User not found."),
+            406: OpenApiResponse(description="Password validation failed."),
+        },
+    ),
+)
 class PasswordResetConfirmView(APIView):
     """APIView for getting reset password tokens and passwords."""
 
