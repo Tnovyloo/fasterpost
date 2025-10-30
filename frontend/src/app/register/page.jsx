@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Header from "../components/Header";
+import api from "@/axios/api";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -25,36 +26,60 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/accounts/user/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          password_1: password,
-          password_2: confirmPassword,
-          email: email,
-        }),
-        credentials: "include",
+      const { data } = await api.post("/accounts/user/register", {
+        password_1: password,
+        password_2: confirmPassword,
+        email: email,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Wystąpił błąd podczas rejestracji.");
-      }
-
+      // Axios automatically throws on non-2xx responses, so no need for `!res.ok`
       setMessage(data?.status || "Rejestracja zakończona sukcesem!");
       setError("");
-      startCooldown(); // enable cooldown for resend button
+      startCooldown();
     } catch (err) {
-      setError(err.message || "Wystąpił nieoczekiwany błąd.");
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        err.message ||
+        "Wystąpił nieoczekiwany błąd.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Cooldown logic for resend button
+  const handleResend = async () => {
+    if (!email) {
+      setError("Proszę wpisać adres e-mail, aby wysłać link weryfikacyjny.");
+      return;
+    }
+
+    if (cooldown > 0) return;
+
+    setError("");
+    setMessage("");
+
+    try {
+      const { data } = await api.post("/accounts/user/resend-verification-email", {
+        email,
+      });
+
+      setMessage(
+        data?.status || "Link weryfikacyjny został ponownie wysłany!"
+      );
+      startCooldown();
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        err.message ||
+        "Wystąpił nieoczekiwany błąd.";
+      setError(msg);
+    }
+  };
+
   const startCooldown = () => {
-    setCooldown(10); // 10s cooldown
+    setCooldown(10);
     const interval = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
@@ -64,55 +89,7 @@ export default function RegisterPage() {
         return prev - 1;
       });
     }, 1000);
-  };
-
-  const handleResend = async () => {
-    // Require email before sending
-    if (!email || email === "") {
-      setError("Proszę wpisać adres e-mail, aby wysłać link weryfikacyjny.");
-      return;
-    }
-  
-    if (cooldown > 0) return;
-  
-    setError("");
-    setMessage("");
-  
-    try {
-      const response = await fetch(
-        "http://localhost:8000/accounts/user/resend-verification-email",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-          credentials: "include",
-        }
-      );
-  
-      let data;
-      try {
-        const text = await response.text();
-        data = text.startsWith("{") ? JSON.parse(text) : null;
-      } catch {
-        data = null;
-      }
-  
-      if (!response.ok) {
-        const msg = data?.error || `Serwer zwrócił błąd ${response.status}.`;
-        throw new Error(msg);
-      }
-  
-      if (!data) {
-        throw new Error("Niepoprawna odpowiedź serwera (nie-JSON).");
-      }
-  
-      setMessage("Link weryfikacyjny został ponownie wysłany!");
-      startCooldown();
-    } catch (err) {
-      setError(err.message || "Wystąpił nieoczekiwany błąd.");
-    }
-  };
-  
+  };  
 
   return (
     <div>

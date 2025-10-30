@@ -190,7 +190,6 @@ class LoginView(APIView):
         responses={
             200: OpenApiResponse(description="Token destroyed."),
             404: OpenApiResponse(description="Token not found."),
-            401: OpenApiResponse(description="User is anonymous."),
         },
     ),
 )
@@ -237,10 +236,13 @@ class LogoutView(APIView):
                 )
 
         else:
-            return Response(
-                data={"error": "User is anonymous!"},
-                status=status.HTTP_401_UNAUTHORIZED,
+            response = Response(
+                data={"status": "Token was destroyed"},
+                status=status.HTTP_200_OK,
             )
+            response.delete_cookie("auth_token")  # Clear auth cookie
+
+            return response
 
 
 @extend_schema_view(

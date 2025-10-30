@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Header from "../components/Header";
+import api from "@/axios/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,33 +18,24 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-  
+
     try {
-      const response = await fetch("http://localhost:8000/accounts/user/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // send HttpOnly cookie
-        body: JSON.stringify({
-          email: email.trim(), // ensure no spaces
-          password: password
-        }),
+      const { data } = await api.post("/accounts/user/login", {
+        email: email.trim(),
+        password: password,
       });
-  
-      const data = await response.json();
-  
-      if (!response.ok) {
-        throw new Error(data?.message || "Nie udało się zalogować.");
-      }
-  
-      if (response.ok) {
-        // Successfully logged in
-        console.log("Zalogowano!", data);
-        router.push("/");
-      } else {
-        setError(data?.message);
-      }
+
+      localStorage.setItem("isLoggedIn", "true");
+
+      console.log("Zalogowano!", data);
+      router.push("/");
     } catch (err) {
-      setError(err.message);
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        err.message ||
+        "Nie udało się zalogować.";
+      setError(msg);
     } finally {
       setLoading(false);
     }

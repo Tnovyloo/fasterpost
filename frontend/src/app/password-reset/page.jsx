@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Header from "../components/Header";
+import api from "@/axios/api";
 
 export default function PasswordResetPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export default function PasswordResetPage() {
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0); // 30s delay
 
+  // Cooldown logic for resend
   const startCooldown = () => {
     setCooldown(30); // 30 seconds cooldown
     const interval = setInterval(() => {
@@ -28,31 +30,28 @@ export default function PasswordResetPage() {
     e.preventDefault();
     setError("");
     setMessage("");
+
     if (!email.trim()) {
       setError("Proszę wpisać adres e-mail.");
       return;
     }
 
     setLoading(true);
-
     try {
-      const res = await fetch("http://localhost:8000/accounts/user/password-reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-        credentials: "include",
+      const { data } = await api.post("/accounts/user/password-reset", {
+        email: email.trim(),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Wystąpił błąd przy wysyłaniu e-maila.");
-      }
-
-      setMessage("E-mail do resetowania hasła został wysłany!");
+      // Axios throws on non-2xx responses
+      setMessage(data?.status || "E-mail do resetowania hasła został wysłany!");
       startCooldown();
     } catch (err) {
-      setError(err.message || "Wystąpił nieoczekiwany błąd.");
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        err.message ||
+        "Wystąpił nieoczekiwany błąd.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
