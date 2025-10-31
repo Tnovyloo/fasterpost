@@ -18,7 +18,12 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "corsheaders",
     # "rest_framework.authtoken",  # For Token authorization.
+    
     "accounts",
+    "postmats",
+    "logistics",
+    "packages",
+
     "drf_spectacular",
 ]
 
