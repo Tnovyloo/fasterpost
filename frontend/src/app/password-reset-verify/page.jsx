@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "../components/Header";
+import api from "@/axios/api";
 
 export default function PasswordResetVerifyPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function PasswordResetVerifyPage() {
   // Get UID and token from URL
   const uid = searchParams.get("uid");
   const token = searchParams.get("token");
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,31 +37,29 @@ export default function PasswordResetVerifyPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(
-        `http://localhost:8000/accounts/user/password-reset-verify/${uid}/${token}`,
+      // ✅ Axios POST request
+      const { data } = await api.post(
+        `/accounts/user/password-reset-verify/${uid}/${token}`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            uid,
-            verify_token: token,
-            password_1: password1,
-            password_2: password2,
-          }),
-          credentials: "include",
+          uid,
+          verify_token: token,
+          password_1: password1,
+          password_2: password2,
         }
       );
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Nie udało się zresetować hasła.");
-      }
-
+      localStorage.setItem("isLoggedIn", "true");
+      
       setMessage("Hasło zostało zmienione pomyślnie! Przekierowanie...");
-      setTimeout(() => router.push("/"), 3000); // redirect after 3s
+      setTimeout(() => router.push("/"), 3000);
     } catch (err) {
-      setError(err.message || "Wystąpił nieoczekiwany błąd.");
+      // ✅ Clean, detailed error handling
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        err.message ||
+        "Wystąpił nieoczekiwany błąd.";
+      setError(msg);
     } finally {
       setLoading(false);
     }

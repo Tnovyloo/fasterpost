@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework.urlpatterns import format_suffix_patterns
 from .views.views_user import *
+from .views.views_token import *
 
 from .views import views_courier
 
@@ -25,6 +26,8 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name="user-confirm-password-reset",
     ),
+    # URLs for TokenHealthView
+    path("user/token-health/", TokenHealthView.as_view(), name="token-health"),
     # URLs for testing permissions.
     path("courier", views_courier.CourierDashboardView.as_view()),
     path("bussiness", views_courier.BusinessDashboardView.as_view()),

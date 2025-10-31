@@ -3,45 +3,71 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import api from "@/axios/api";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true); // Prevent flash
   const router = useRouter();
 
-  // Check if user is logged in (you can call your /info endpoint)
+  // Check login state on mount
   useEffect(() => {
-    fetch("http://localhost:8000/accounts/user/info", {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Not logged in make it work better");
-      })
-      .then((data) => {
-        setIsLoggedIn(true);
-      })
-      .catch(() => setIsLoggedIn(false));
+    const checkLoginStatus = async () => {
+      const saved = localStorage.getItem("isLoggedIn");
+      if (!saved) {
+        setIsLoggedIn(false);
+        setLoading(false);
+        return;
+      }
 
-      console.warn("Make it work better, without any request or with some interceptor in AXIOS");
+      try {
+        const res = await api.get("/accounts/user/token-health/");
+        if (res.data.valid) {
+          setIsLoggedIn(true);
+        } else {
+          localStorage.removeItem("isLoggedIn");
+          setIsLoggedIn(false);
+        }
+      } catch (err) {
+        console.error("Token health check failed:", err);
+        localStorage.removeItem("isLoggedIn");
+        setIsLoggedIn(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkLoginStatus();
   }, []);
 
   const handleLogout = async () => {
     try {
-      const res = await fetch("http://localhost:8000/accounts/user/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (!res.ok) throw new Error("Nie udało się wylogować.");
-
-      setIsLoggedIn(false);
-      router.push("/login");
+      await api.post("/accounts/user/logout");
     } catch (err) {
-      console.error(err);
-      alert(err.message || "Wystąpił błąd przy wylogowywaniu.");
+      console.error("Logout API failed:", err);
+    } finally {
+      localStorage.removeItem("isLoggedIn");
+      setIsLoggedIn(false);
+      setMenuOpen(false);
+      router.push("/login");
     }
   };
+
+  // Show nothing or skeleton while checking
+  if (loading) {
+    return (
+      <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-white/70 border-b border-blue-100/50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/file.svg" alt="FasterPost Logo" className="w-8 h-8 drop-shadow-sm" />
+            <span className="text-xl font-bold text-blue-700 tracking-tight">FasterPost</span>
+          </Link>
+          <div className="h-8 w-24 animate-pulse bg-blue-100 rounded" />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-white/70 border-b border-blue-100/50 shadow-sm">
@@ -55,16 +81,19 @@ export default function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex gap-6 text-blue-800 font-medium">
           <NavLink href="/">Strona główna</NavLink>
-          <NavLink href="/test-user">Test user</NavLink>    
-          {!isLoggedIn && <NavLink href="/login">Logowanie</NavLink>}
-          {!isLoggedIn && <NavLink href="/register">Rejestracja</NavLink>}
-          {isLoggedIn && (
-                <button
-                onClick={handleLogout}
-                className="text-blue-700 hover:text-blue-900 font-medium transition"
-                >
-                Wyloguj się
-                </button>
+          <NavLink href="/test-user">Test user</NavLink>
+          {!isLoggedIn ? (
+            <>
+              <NavLink href="/login">Logowanie</NavLink>
+              <NavLink href="/register">Rejestracja</NavLink>
+            </>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="text-blue-700 hover:text-blue-900 font-medium transition"
+            >
+              Wyloguj się
+            </button>
           )}
         </nav>
 
@@ -96,13 +125,13 @@ export default function Header() {
       {menuOpen && (
         <nav className="md:hidden flex flex-col items-center gap-4 bg-white/90 backdrop-blur-lg border-t border-blue-100 py-4 text-blue-800 font-medium animate-fade-in">
           <NavLink href="/" onClick={() => setMenuOpen(false)}>Strona główna</NavLink>
-          {!isLoggedIn && (
+          <NavLink href="/test-user" onClick={() => setMenuOpen(false)}>Test user</NavLink>
+          {!isLoggedIn ? (
             <>
               <NavLink href="/login" onClick={() => setMenuOpen(false)}>Logowanie</NavLink>
               <NavLink href="/register" onClick={() => setMenuOpen(false)}>Rejestracja</NavLink>
             </>
-          )}
-          {isLoggedIn && (
+          ) : (
             <button
               onClick={() => {
                 handleLogout();

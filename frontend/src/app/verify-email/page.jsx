@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "../components/Header";
+import api from "@/axios/api";
 
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
@@ -23,41 +24,16 @@ export default function VerifyEmailPage() {
         return;
       }
 
-      setLoading(true);
-      setError("");
-      setMessage("");
-
       try {
-        const response = await fetch(
-          `http://localhost:8000/accounts/user/verify/${uid}/${token}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              uid: uid,
-              verify_token: token,
-            }),
-          }
+        const res = await api.post(
+          `/accounts/user/verify/${uid}/${token}`,
+          { uid, verify_token: token },
+          { withCredentials: true }
         );
-
-        let data;
-        try {
-          const text = await response.text();
-          data = text.startsWith("{") ? JSON.parse(text) : null;
-        } catch {
-          data = null;
-        }
-
-        if (!response.ok) {
-          const msg = data?.error || `Serwer zwrócił błąd ${response.status}`;
-          console.log(response)
-          throw new Error(msg);
-        }
-
-        setMessage(data?.status || "Adres e-mail został pomyślnie zweryfikowany!");
+        setMessage(res.data.status || "Adres e-mail został zweryfikowany!");
+        localStorage.setItem("isLoggedIn", "true");
       } catch (err) {
-        setError(err.message || "Wystąpił nieoczekiwany błąd.");
+        setError(err.response?.data?.detail || err.message || "Błąd weryfikacji.");
       } finally {
         setLoading(false);
       }

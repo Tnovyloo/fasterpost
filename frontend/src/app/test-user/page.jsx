@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
+import api from "@/axios/api";
 
 export default function DashboardTest() {
   const [user, setUser] = useState(null);
@@ -10,23 +11,21 @@ export default function DashboardTest() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch("http://localhost:8000/accounts/user/info/", {
-          credentials: "include", // sends HttpOnly cookie for authentication
-        });
-
-        if (!res.ok) {
-          throw new Error(`Server returned ${res.status}`);
-        }
-
-        const data = await res.json();
-        setUser(data);
+        const res = await api.get("/accounts/user/info/"); 
+        setUser(res.data);
       } catch (err) {
-        setError(err.message);
+        // You can get detailed info from err.response
+        const status = err.response?.status;
+        const message = err.response?.data?.detail || err.message;
+
+        console.error("Failed to fetch user:", status, message);
+        setError(message);
       }
     };
 
     fetchUser();
   }, []);
+
 
   return (
     <div>
