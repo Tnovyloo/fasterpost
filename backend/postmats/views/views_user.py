@@ -1,10 +1,31 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from postmats.models import Stash, Postmat
-from postmats.serializers import PostmatSerializer
+from postmats.serializers import PostmatSerializer, StashSerializer
+
+class PostmatDetailedView(APIView):
+    def get(self, request, id):
+        postmat = get_object_or_404(Postmat, id=id)
+        serializer = PostmatSerializer(postmat)
+        return Response(serializer.data)
+    
+    def put(self, request, id):
+        postmat = get_object_or_404(Postmat, id=id)
+        serializer = PostmatSerializer(postmat, data=request.data, partial=True)
+
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, id):
+        postmat = get_object_or_404(Postmat, id=id)
+        postmat.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class PostmatView(APIView):
     def get(self, request):
@@ -23,26 +44,18 @@ class PostmatView(APIView):
                 return Response({"error": "Postmat with this name already exists in the specified warehouse."}, status=status.HTTP_400_BAD_REQUEST)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-class PostmatDetailedView(APIView):
+            
+class StashDetailedView(APIView):
     def get(self, request, id):
-        postmat = Postmat.objects.get_or_404(id=id)
-        serializer = PostmatSerializer(postmat)
+        stash = get_object_or_404(Stash, id=id)
+        serializer = StashSerializer(stash)
+
         return Response(serializer.data)
     
-    def put(self, request, id):
-        postmat = Postmat.objects.get_or_404(id=id)
-        serializer = PostmatSerializer(postmat, data=request.data, partial=True)
+class StashView(APIView):
+    def get(self, request):
+        stashes = Stash.objects.all()
+        serializer = StashSerializer(stashes, many=True)
 
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.data)
     
-    def delete(self, request, id):
-        postmat = Postmat.objects.get_or_404(id=id)
-        postmat.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-            
-        

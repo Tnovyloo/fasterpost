@@ -11,3 +11,13 @@ class PostmatSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
         ]
+
+class StashSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Stash
+        fields = [
+            "postmat",
+            "size",
+            "is_empty",
+            "reserved_until",
+        ]
