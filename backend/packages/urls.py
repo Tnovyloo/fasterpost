@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import UserParcelsView, ParcelDetailView
+from .views import UserPackagesView, ParcelDetailView
 
 urlpatterns = [
-    path("user/", UserParcelsView.as_view()),
+    path("user/", UserPackagesView.as_view()),
     path("user/<uuid:id>", ParcelDetailView.as_view()),
 ]

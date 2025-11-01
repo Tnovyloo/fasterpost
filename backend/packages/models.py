@@ -15,6 +15,7 @@ class Package(models.Model):
     pickup_code = models.CharField(max_length=10, blank=True, null=True)
     origin_postmat = models.ForeignKey(Postmat, on_delete=models.CASCADE, related_name='origin_packages')
     destination_postmat = models.ForeignKey(Postmat, on_delete=models.CASCADE, related_name='destination_packages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
     receiver_name = models.CharField(max_length=255)
     receiver_phone = models.CharField(max_length=20)
     size = models.CharField(max_length=10, choices=PackageSize.choices)

@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import Package
-from ..accounts.models import User
-from ..postmats.models import Postmat
+from accounts.models import User
+from postmats.models import Postmat
 
 from .serializers import PackageSerializer
 
@@ -16,7 +16,7 @@ class UserPackagesView(APIView):
 
     def get(self, request):
         user = request.user
-        packages = Package.objects.filter(sender=user) | Package.objects.filter(receiver=user)
+        packages = Package.objects.filter(sender=user)
         serializer = PackageSerializer(packages, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
