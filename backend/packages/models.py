@@ -39,4 +39,5 @@ class Actualization(models.Model):
     courier_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
     warehouse_id = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
     route_remaining = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     routes = models.ManyToManyField(Route, related_name='actualizations', blank=True)

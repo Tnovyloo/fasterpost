@@ -28,8 +28,8 @@ export default function UserPanel() {
           <div className="grid gap-4">
             {parcels.map((p) => (
               <div key={p.id} className="p-4 border rounded-xl bg-white/90 shadow-sm">
-                <p className="font-medium text-blue-700">📦 {p.trackingNumber}</p>
-                <p className="text-sm text-gray-600">Status: {p.status}</p>
+                <p className="font-medium text-blue-700">📦 {p.id}</p>
+                <p className="text-sm text-gray-600">Status: {p.latest_status_display || "N/A"}</p>
               </div>
             ))}
           </div>
