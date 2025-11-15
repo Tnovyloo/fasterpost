@@ -28,7 +28,7 @@ export default function LoginPage() {
       localStorage.setItem("isLoggedIn", "true");
 
       console.log("Zalogowano!", data);
-      router.push("/");
+      router.push("/user");
     } catch (err) {
       const msg =
         err.response?.data?.error ||
