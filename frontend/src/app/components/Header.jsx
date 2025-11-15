@@ -88,12 +88,15 @@ export default function Header() {
               <NavLink href="/register">Rejestracja</NavLink>
             </>
           ) : (
-            <button
-              onClick={handleLogout}
-              className="text-blue-700 hover:text-blue-900 font-medium transition"
-            >
-              Wyloguj się
-            </button>
+            <>
+              <NavLink href="/send-package">Wyślij paczkę</NavLink>
+              <button
+                onClick={handleLogout}
+                className="text-blue-700 hover:text-blue-900 font-medium transition"
+              >
+                Wyloguj się
+              </button>
+            </>
           )}
         </nav>
 
@@ -132,15 +135,18 @@ export default function Header() {
               <NavLink href="/register" onClick={() => setMenuOpen(false)}>Rejestracja</NavLink>
             </>
           ) : (
-            <button
-              onClick={() => {
-                handleLogout();
-                setMenuOpen(false);
-              }}
-              className="text-blue-700 hover:text-blue-900 font-medium transition"
-            >
-              Wyloguj się
-            </button>
+            <>
+              <NavLink href="/send-package" onClick={() => setMenuOpen(false)}>Wyślij paczkę</NavLink>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setMenuOpen(false);
+                }}
+                className="text-blue-700 hover:text-blue-900 font-medium transition"
+              >
+                Wyloguj się
+              </button>
+            </>
           )}
         </nav>
       )}

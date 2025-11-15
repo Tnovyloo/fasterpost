@@ -1,33 +1,55 @@
-"use client"
+"use client";
 
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import api from "@/axios/api";
 
-const defaultIcon = L.icon({
-    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
+const ParcelMapInner = dynamic(() => import("./ParcelMapInner"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[300px] bg-gray-200 rounded-xl flex items-center justify-center">
+      Ładowanie mapy…
+    </div>
+  ),
 });
-L.Marker.prototype.options.icon = defaultIcon;
 
-export default function ParcelMap({ location }) {
-    if (!location) return null;
+export default function ParcelMap({
+  selecting,
+  selectedOriginId,
+  selectedDestinationId,
+  onSelectOrigin,
+  onSelectDestination,
+}) {
+  const [postmats, setPostmats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    return (
-        <MapContainer center={[location.lat, location.lng]} 
-                      zoom={16} 
-                      scrollWheelZoom={false}
-                      className="w-full h-full rounded-xl">
-            <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution="&copy; OpenStreetMap contributors"/>
+  useEffect(() => {
+    const fetchPostmats = async () => {
+      try {
+        const res = await api.get("/api/postmats/");
+        setPostmats(res.data);
+      } catch (err) {
+        console.error(err);
+        setError("Nie udało się załadować paczkomatów.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPostmats();
+  }, []);
 
-            <Marker position={[location.lat, location.lng]}>
-                <Popup>
-                    Parcel Destination Postmat Location
-                </Popup>
-            </Marker>
-        </MapContainer>
-    );
+  if (loading) return <div className="w-full h-[300px] bg-gray-200 rounded-xl flex items-center justify-center">Ładowanie…</div>;
+  if (error) return <div className="w-full h-[300px] bg-red-100 text-red-700 rounded-xl flex items-center justify-center p-4">{error}</div>;
+
+  return (
+    <ParcelMapInner
+      postmats={postmats}
+      selecting={selecting}
+      selectedOriginId={selectedOriginId}
+      selectedDestinationId={selectedDestinationId}
+      onSelectOrigin={onSelectOrigin}
+      onSelectDestination={onSelectDestination}
+    />
+  );
 }
