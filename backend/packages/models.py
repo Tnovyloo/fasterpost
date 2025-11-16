@@ -41,3 +41,6 @@ class Actualization(models.Model):
     route_remaining = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     routes = models.ManyToManyField(Route, related_name='actualizations', blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
