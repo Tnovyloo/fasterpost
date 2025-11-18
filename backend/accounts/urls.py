@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.urlpatterns import format_suffix_patterns
 from .views.views_user import *
 from .views.views_token import *
+from .views.views_info import *
 
 from .views import views_courier
 
@@ -33,4 +34,5 @@ urlpatterns = [
     path("bussiness", views_courier.BusinessDashboardView.as_view()),
     path("base", views_courier.NormalUserDashboardView.as_view()),
     path("user/info/", views_courier.UserInfoView.as_view(), name="user-info"),
+    path("user/me/", CurrentUserRetrieveUpdateView.as_view(), name="current-user")
 ]
