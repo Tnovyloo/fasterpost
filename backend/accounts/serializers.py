@@ -1,17 +1,21 @@
 from rest_framework import serializers
 from .models import *
 
+import pyotp
+
 
 class UserLoginSerializer(serializers.Serializer):
     """Serializer for user login purpose"""
 
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+    code = serializers.CharField(required=False)
 
     class Meta:
         fields = [
             "email",
             "password",
+            "code",
         ]
 
 
@@ -91,3 +95,15 @@ class UserUnSafeSerializerForTests(serializers.ModelSerializer):
             "date_joined",
             "is_active",
         ]
+
+
+class EnableTOTPSerializer(serializers.Serializer):
+    pass  # no input
+
+
+class VerifyTOTPSerializer(serializers.Serializer):
+    code = serializers.CharField()
+
+
+class DisableTOTPSerializer(serializers.Serializer):
+    pass

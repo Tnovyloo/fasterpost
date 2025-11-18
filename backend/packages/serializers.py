@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from .models import Package, Actualization
 from rest_framework import serializers
 
@@ -116,6 +117,7 @@ class SendPackageSerializer(serializers.Serializer):
 
         # Reserve stash
         stash.is_empty = False
+        stash.reserved_until = datetime.now() + timedelta(days=1)
         stash.save()
 
         unlock_code = generate_unlock_code()

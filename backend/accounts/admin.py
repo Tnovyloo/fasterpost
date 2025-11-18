@@ -10,6 +10,7 @@ from accounts.models import (
     EmailVerification,
     ResetPasswordToken,
     ExpiringToken,
+    UserTOTP,
 )
 from accounts.forms.forms_admin import UserCreationForm, UserChangeForm
 from accounts.utils import (
@@ -253,3 +254,6 @@ class ExpiringTokenAdmin(admin.ModelAdmin):
 
     has_expired_display.boolean = True
     has_expired_display.short_description = "Expired?"
+
+
+admin.site.register(UserTOTP)

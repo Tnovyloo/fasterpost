@@ -90,7 +90,7 @@ class SendPackageView(APIView):
             {
                 "message": "Package registered successfully.",
                 "package_id": package.id,
-                "origin_postmat": str(package.origin_postmat_id),
+                "origin_postmat": str(package.origin_postmat.name),
                 "unlock_code": package.unlock_code,
             }
         )

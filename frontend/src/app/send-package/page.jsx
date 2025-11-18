@@ -3,179 +3,234 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import api from "@/axios/api";
-import { useRouter } from "next/navigation";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
 
-// Client-side only map
-const ParcelMap = dynamic(() => import("../components/ParcelMapInner"), { ssr: false });
+// Leaflet map dynamically loaded (CSR)
+const ParcelMapSendPackage = dynamic(
+  () => import("../components/ParcelMapSendPackage"),
+  { ssr: false, loading: () => <p>Loading map...</p> }
+);
 
-export default function SendPackage() {
-  const router = useRouter();
+// Haversine formula for distance (km)
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
+export default function SendPackagePage() {
   const [postmats, setPostmats] = useState([]);
-  const [originPostmatId, setOriginPostmatId] = useState(""); // use empty string!
-  const [destinationPostmatId, setDestinationPostmatId] = useState("");
+  const [origin, setOrigin] = useState(null);
+  const [destination, setDestination] = useState(null);
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
   const [size, setSize] = useState("small");
-  const [weight, setWeight] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [weight, setWeight] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState(null);
+  const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    const fetchPostmats = async () => {
-      try {
-        const res = await api.get("/api/postmats/");
-        setPostmats(res.data);
-      } catch (err) {
-        console.error("Failed to load postmats:", err);
-      }
-    };
-    fetchPostmats();
+    api.get("/api/postmats/").then((res) => setPostmats(res.data));
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setSubmitting(true);
-
-    if (!originPostmatId || !destinationPostmatId) {
-      setError("Wybierz paczkomat nadawczy i docelowy.");
-      setSubmitting(false);
+  const handleSubmit = async () => {
+    if (!origin || !destination) {
+      setMessage({ type: "error", text: "Please select both origin and destination postmat." });
       return;
     }
 
+    setLoading(true);
+    setMessage(null);
+
     try {
-      const { data } = await api.post("/api/packages/send-package/", {
-        origin_postmat_id: originPostmatId,
-        destination_postmat_id: destinationPostmatId,
+      const res = await api.post("/api/packages/send-package/", {
+        origin_postmat_id: origin.id,
+        destination_postmat_id: destination.id,
         receiver_name: receiverName,
         receiver_phone: receiverPhone,
-        size,
+        size: size,
         weight: Number(weight),
       });
 
-      setSuccess("Paczka zarejestrowana! Przekierowywanie…");
-      setTimeout(() => router.push(`/package/${data.package_id}`), 1500);
+      setResponse(res.data);
+
+      if (res.data.origin_postmat !== origin.name) {
+        setMessage({
+          type: "warning",
+          text: `Selected origin changed to ${res.data.origin_postmat} due to availability.`,
+        });
+      } else {
+        setMessage({
+          type: "success",
+          text: "Package created successfully!",
+        });
+      }
     } catch (err) {
-      setError(err.response?.data?.error || "Błąd wysyłania paczki.");
-    } finally {
-      setSubmitting(false);
+        console.log(err);
+        let errorText = "Failed to send package.";
+        
+        // Show server-provided error if available
+        if (err.response?.data) {
+          if (typeof err.response.data === "string") {
+            errorText += ` ${err.response.data}`;
+          } else if (Array.isArray(err.response.data)) {
+            errorText += ` ${err.response.data.join(", ")}`;
+          } else if (typeof err.response.data === "object") {
+            // flatten object messages
+            const messages = Object.values(err.response.data).flat();
+            errorText += ` ${messages.join(", ")}`;
+          }
+        }
+      
+        setMessage({
+          type: "error",
+          text: errorText,
+        });
     }
+
+    setLoading(false);
   };
 
+  const actualOrigin = response
+    ? postmats.find((p) => p.name === response.origin_postmat)
+    : null;
+
+  const distance =
+    actualOrigin && origin && actualOrigin.id !== origin.id
+      ? getDistance(
+          origin.latitude,
+          origin.longitude,
+          actualOrigin.latitude,
+          actualOrigin.longitude
+        ).toFixed(2)
+      : null;
+
+  const mapProps = { postmats, origin, destination, setOrigin, setDestination, actualOrigin };
+
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-100 p-6 gap-6">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-xl bg-white shadow-lg rounded-xl p-6 flex flex-col gap-4"
-      >
-        <h1 className="text-2xl font-bold mb-4 text-black">Wyślij paczkę</h1>
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+      <Header />
 
-        {/* Postmat inputs */}
-        <div>
-          <label className="block text-black mb-1">Paczkomat nadawczy</label>
-          <input
-            type="text"
-            value={originPostmatId || ""}
-            onChange={(e) => setOriginPostmatId(e.target.value)}
-            placeholder="Kliknij na mapie, aby wybrać"
-            className="w-full border p-2 rounded-lg text-black"
-        />
+      <main className="flex-1 px-6 py-10 pt-24 max-w-6xl mx-auto w-full">
+        <h1 className="text-3xl font-bold text-blue-900 mb-8 tracking-tight">
+          📦 Send a Package
+        </h1>
 
-        </div>
+        <div className="grid md:grid-cols-2 gap-10">
+          {/* LEFT — FORM */}
+          <div className="bg-white shadow p-6 rounded-2xl space-y-5 border">
+            <h2 className="text-xl font-semibold text-black">Package Info</h2>
 
-        <div>
-          <label className="block text-black mb-1">Paczkomat docelowy</label>
-
-                {/* Destination input */}
-                <input
+            <div>
+              <label className="block font-medium text-black">Receiver Name</label>
+              <input
                 type="text"
-                value={destinationPostmatId}
-                onChange={(e) => setDestinationPostmatId(e.target.value)}
-                placeholder="Kliknij na mapie, aby wybrać"
-                className="w-full border p-2 rounded-lg text-black"
-                />
+                className="w-full border rounded-xl p-2 mt-1 text-black"
+                value={receiverName}
+                onChange={(e) => setReceiverName(e.target.value)}
+              />
+            </div>
 
+            <div>
+              <label className="block font-medium text-black">Receiver Phone</label>
+              <input
+                type="text"
+                className="w-full border rounded-xl p-2 mt-1 text-black"
+                value={receiverPhone}
+                onChange={(e) => setReceiverPhone(e.target.value)}
+              />
+            </div>
 
+            <div>
+              <label className="block font-medium text-black">Size</label>
+              <select
+                className="w-full border rounded-xl p-2 mt-1 text-black"
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+              >
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-medium text-black">Weight (kg)</label>
+              <input
+                type="number"
+                className="w-full border rounded-xl p-2 mt-1 text-black"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                min="1"
+              />
+            </div>
+
+            {/* Messages */}
+            {message && (
+              <div
+                className={`p-3 rounded-xl mt-2 ${
+                  message.type === "error"
+                    ? "bg-red-100 text-red-700 border border-red-400"
+                    : message.type === "warning"
+                    ? "bg-yellow-100 text-yellow-800 border border-yellow-400"
+                    : "bg-green-100 text-green-700 border border-green-400"
+                }`}
+              >
+                {message.text}
+              </div>
+            )}
+
+            {/* Selected postmats */}
+            <div className="bg-gray-50 p-4 rounded-xl border text-black mt-2">
+              <p><b>Selected Origin:</b> {origin ? origin.name : "Not selected"}</p>
+              <p><b>Destination:</b> {destination ? destination.name : "Not selected"}</p>
+              {distance && (
+                <p className="text-orange-600 mt-2">
+                  ⚠️ Nearest stash used. Distance from selected origin: {distance} km
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl font-semibold shadow mt-2"
+            >
+              {loading ? "Sending..." : "Send Package"}
+            </button>
+
+            {response && (
+              <div className="bg-green-100 border border-green-400 p-4 rounded-xl mt-4 text-black">
+                <p className="font-semibold text-green-700">Package Created!</p>
+                <p><b>ID:</b> {response.package_id}</p>
+                <p><b>Unlock Code:</b> {response.unlock_code}</p>
+                <p><b>Using Postmat:</b> {response.origin_postmat}</p>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT — MAP */}
+          <div className="bg-white shadow p-4 rounded-2xl border">
+            <h2 className="text-xl font-semibold text-black mb-2">
+              Select Origin & Destination Postmats
+            </h2>
+            <div className="h-[500px] rounded-xl overflow-hidden">
+              <ParcelMapSendPackage {...mapProps} />
+            </div>
+          </div>
         </div>
+      </main>
 
-        {/* Receiver info */}
-        <div>
-          <label className="block text-black mb-1">Imię i nazwisko odbiorcy</label>
-          <input
-            type="text"
-            value={receiverName}
-            onChange={(e) => setReceiverName(e.target.value)}
-            className="w-full border p-2 rounded-lg text-black"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-black mb-1">Telefon odbiorcy</label>
-          <input
-            type="tel"
-            value={receiverPhone}
-            onChange={(e) => setReceiverPhone(e.target.value)}
-            className="w-full border p-2 rounded-lg text-black"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-black mb-1">Rozmiar paczki</label>
-          <select
-            value={size}
-            onChange={(e) => setSize(e.target.value)}
-            className="w-full border p-2 rounded-lg text-black"
-          >
-            <option value="small">Mała</option>
-            <option value="medium">Średnia</option>
-            <option value="large">Duża</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-black mb-1">Waga (kg)</label>
-          <input
-            type="number"
-            min="0.1"
-            step="0.1"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            className="w-full border p-2 rounded-lg text-black"
-            required
-          />
-        </div>
-
-        {error && <p className="text-red-600">{error}</p>}
-        {success && <p className="text-green-600">{success}</p>}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className={`w-full py-2 rounded-lg text-white font-medium ${
-            submitting ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
-          {submitting ? "Wysyłanie…" : "Wyślij paczkę"}
-        </button>
-
-        {/* Map */}
-        <div className="mt-4 w-full h-96">
-          <ParcelMap
-            postmats={postmats}
-            selectedOriginId={originPostmatId}
-            selectedDestinationId={destinationPostmatId}
-            onSelect={(pm, type) => {
-              if (type === "origin") setOriginPostmatId(pm.id);
-              else setDestinationPostmatId(pm.id);
-            }}
-          />
-        </div>
-      </form>
+      <Footer />
     </div>
   );
 }
