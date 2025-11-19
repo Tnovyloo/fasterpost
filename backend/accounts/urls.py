@@ -5,6 +5,7 @@ from .views.views_token import *
 from .views.views_info import *
 
 from .views import views_courier
+from .views import views_totp
 
 urlpatterns = [
     # URLs for Login and Register
@@ -27,6 +28,13 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name="user-confirm-password-reset",
     ),
+    # URLs for TOTP
+    path("user/totp/enable", views_totp.EnableTOTPView.as_view(), name="totp-enable"),
+    path("user/totp/verify", views_totp.VerifyTOTPView.as_view(), name="totp-verify"),
+    path(
+        "user/totp/disable", views_totp.DisableTOTPView.as_view(), name="totp-disable"
+    ),
+    path("user/totp/status", views_totp.StatusTOTPView.as_view(), name="totp-status"),
     # URLs for TokenHealthView
     path("user/token-health/", TokenHealthView.as_view(), name="token-health"),
     # URLs for testing permissions.

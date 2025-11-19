@@ -1,16 +1,19 @@
 from rest_framework import serializers
 from .models import Postmat, Stash
 
+
 class PostmatSerializer(serializers.ModelSerializer):
     class Meta:
         model = Postmat
         fields = [
+            "id",
             "name",
             "warehouse_id",
             "status",
             "latitude",
             "longitude",
         ]
+
 
 class StashSerializer(serializers.ModelSerializer):
     class Meta:

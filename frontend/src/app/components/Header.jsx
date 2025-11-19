@@ -80,20 +80,24 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex gap-6 text-blue-800 font-medium">
-          <NavLink href="/">Strona główna</NavLink>
+          <NavLink href="/">Home</NavLink>
           <NavLink href="/test-user">Test user</NavLink>
           {!isLoggedIn ? (
             <>
-              <NavLink href="/login">Logowanie</NavLink>
-              <NavLink href="/register">Rejestracja</NavLink>
+              <NavLink href="/login">Login</NavLink>
+              <NavLink href="/register">Register</NavLink>
             </>
           ) : (
-            <button
-              onClick={handleLogout}
-              className="text-blue-700 hover:text-blue-900 font-medium transition"
-            >
-              Wyloguj się
-            </button>
+            <>
+              <NavLink href="/send-package">Send package</NavLink>
+              <NavLink href="/user/totp">TOTP</NavLink>
+              <button
+                onClick={handleLogout}
+                className="text-blue-700 hover:text-blue-900 font-medium transition"
+              >
+                Logout
+              </button>
+            </>
           )}
         </nav>
 
@@ -124,23 +128,26 @@ export default function Header() {
       {/* Mobile Navigation */}
       {menuOpen && (
         <nav className="md:hidden flex flex-col items-center gap-4 bg-white/90 backdrop-blur-lg border-t border-blue-100 py-4 text-blue-800 font-medium animate-fade-in">
-          <NavLink href="/" onClick={() => setMenuOpen(false)}>Strona główna</NavLink>
+          <NavLink href="/" onClick={() => setMenuOpen(false)}>Home</NavLink>
           <NavLink href="/test-user" onClick={() => setMenuOpen(false)}>Test user</NavLink>
           {!isLoggedIn ? (
             <>
-              <NavLink href="/login" onClick={() => setMenuOpen(false)}>Logowanie</NavLink>
-              <NavLink href="/register" onClick={() => setMenuOpen(false)}>Rejestracja</NavLink>
+              <NavLink href="/login" onClick={() => setMenuOpen(false)}>Login</NavLink>
+              <NavLink href="/register" onClick={() => setMenuOpen(false)}>Register</NavLink>
             </>
           ) : (
-            <button
-              onClick={() => {
-                handleLogout();
-                setMenuOpen(false);
-              }}
-              className="text-blue-700 hover:text-blue-900 font-medium transition"
-            >
-              Wyloguj się
-            </button>
+            <>
+              <NavLink href="/send-package" onClick={() => setMenuOpen(false)}>Send package</NavLink>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setMenuOpen(false);
+                }}
+                className="text-blue-700 hover:text-blue-900 font-medium transition"
+              >
+                Logout
+              </button>
+            </>
           )}
         </nav>
       )}

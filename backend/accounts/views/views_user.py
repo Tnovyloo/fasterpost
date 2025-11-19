@@ -57,7 +57,7 @@ UserModel = get_user_model()
                     )
                 ],
             ),
-            401: OpenApiResponse(
+            404: OpenApiResponse(
                 description="Invalid credentials or user not verified."
             ),
             404: OpenApiResponse(description="Invalid request data."),
@@ -101,6 +101,20 @@ class LoginView(APIView):
             )
             # DONT Check if user is verified. to CHECK authentication
             if user:
+                try:
+                    totp = user.totp
+                    if totp.confirmed:
+                        if "code" not in validated_data:
+                            return Response(
+                                {"require_2fa": True, "message": "TOTP code required"},
+                                status=206,
+                            )
+
+                        if not pyotp.TOTP(totp.secret).verify(validated_data["code"]):
+                            return Response({"error": "Invalid TOTP code"}, status=404)
+                except UserTOTP.DoesNotExist:
+                    pass  # user does not use TOTP
+
                 # Make an Token for authorization and authentication
                 token, created = Token.objects.get_or_create(user=user)
 
@@ -132,19 +146,19 @@ class LoginView(APIView):
                             data={
                                 "error": f"Invalid credentials for {validated_data['email']}"
                             },
-                            status=status.HTTP_401_UNAUTHORIZED,
+                            status=status.HTTP_406_NOT_ACCEPTABLE,
                         )
                     else:
                         return Response(
                             data={"error": f"User email is not verified!"},
-                            status=status.HTTP_401_UNAUTHORIZED,
+                            status=status.HTTP_406_NOT_ACCEPTABLE,
                         )
                 except Exception as e:
                     return Response(
                         data={
                             "error": f"Invalid credentials for {validated_data['email']}"
                         },
-                        status=status.HTTP_401_UNAUTHORIZED,
+                        status=status.HTTP_406_NOT_ACCEPTABLE,
                     )
 
         else:
