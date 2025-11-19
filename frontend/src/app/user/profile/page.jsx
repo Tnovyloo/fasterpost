@@ -12,6 +12,7 @@ export default function UserProfilePage() {
     const [form, setForm] = useState({
         first_name: "",
         last_name: "",
+        email: "",
         username: "",
         phone_number: "",
     });
@@ -33,10 +34,11 @@ export default function UserProfilePage() {
                     first_name: res.data.first_name || "",
                     last_name: res.data.last_name || "",
                     username: res.data.username || "",
+                    email: res.data.email || "",
                     phone_number: res.data.phone_number || "",
                 });
             } catch (err) {
-                setError("Nie udało się pobrać danych użytkownika. Spróbuj ponownie.");
+                setError("Failed to retrieve user data. Try again later.");
             } finally {
                 setLoading(false);
             }
@@ -57,14 +59,14 @@ export default function UserProfilePage() {
 
         try {
             const res = await api.patch("/accounts/user/me/", form);
-            setSuccess("Dane zostały zaktualizowane pomyślnie!");
+            setSuccess("Your data has been updated successfuly!");
             setUser(res.data);
         } catch (err) {
             if (err.response?.data) {
                 const messages = Object.values(err.response.data).flat().join(" ");
-                setError(messages || "Wystąpił błąd aktualizacji.");
+                setError(messages || "Update error occured.");
             } else {
-                setError("Serwer nie odpowiada. Spróbuj ponownie później.");
+                setError("Server is not respoding. Try again later.");
             }
         } finally {
             setSaving(false);
@@ -93,7 +95,7 @@ export default function UserProfilePage() {
                 <div className="mb-6 flex items-center gap-3">
                     <UserCircle className="text-blue-700 w-10 h-10" />
                     <h1 className="text-3xl font-bold text-blue-900 tracking-tight">
-                        Twój profil
+                        Your profile
                     </h1>
                 </div>
 
@@ -117,14 +119,14 @@ export default function UserProfilePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <InputField
                             icon={<User className="w-4 h-4 text-blue-500" />}
-                            label="Imię"
+                            label="Firstname"
                             name="first_name"
                             value={form.first_name}
                             onChange={handleChange}
                         />
                         <InputField
                             icon={<User className="w-4 h-4 text-blue-500" />}
-                            label="Nazwisko"
+                            label="Lastname"
                             name="last_name"
                             value={form.last_name}
                             onChange={handleChange}
@@ -133,15 +135,23 @@ export default function UserProfilePage() {
 
                     <InputField
                         icon={<User className="w-4 h-4 text-blue-500" />}
-                        label="Nazwa użytkownika"
+                        label="Username"
                         name="username"
                         value={form.username}
                         onChange={handleChange}
                     />
 
                     <InputField
+                        icon={<User className="w-4 h-4 text-blue-500" />}
+                        label="Email"
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
+                    />
+
+                    <InputField
                         icon={<Phone className="w-4 h-4 text-blue-500" />}
-                        label="Numer telefonu"
+                        label="Contact"
                         name="phone_number"
                         value={form.phone_number}
                         onChange={handleChange}
@@ -154,7 +164,7 @@ export default function UserProfilePage() {
                             ${saving ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}
                         `}
                     >
-                        {saving ? "Zapisywanie…" : "Zapisz zmiany"}
+                        {saving ? "Saving…" : "Save changes"}
                     </button>
                 </form>
             </main>

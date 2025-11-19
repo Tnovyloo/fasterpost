@@ -93,7 +93,6 @@ class UserUnSafeSerializerForTests(serializers.ModelSerializer):
         ]
 
 class SafeUserSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(read_only=True)
     role = serializers.CharField(read_only=True)
 
     class Meta:
@@ -108,11 +107,18 @@ class SafeUserSerializer(serializers.ModelSerializer):
             "role",
             "date_joined"
         )
-        read_only_fields = ("id", "email", "role", "date_joined")
+        read_only_fields = ("id", "role", "date_joined")
 
     def validate_username(self, value):
         user = self.context["request"].user
         qs = User.objects.filter(username__iexact=value).exclude(pk=user.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This username is already taken.")
+        return value
+    
+    def validate_email(self, value):
+        user = self.context["request"].user
+        qs = User.objects.filter(email__iexact=value).exclude(pk=user.pk)
         if qs.exists():
             raise serializers.ValidationError("This email is already taken.")
         return value
