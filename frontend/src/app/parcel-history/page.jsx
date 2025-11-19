@@ -123,21 +123,22 @@ export default function ParcelHistoryPage() {
                                     </div>
                                 </div>
 
-                                {/* MAP CARD */}
-                                <div className="bg-white rounded-2xl shadow p-3 border">
-                                    {postmatLocation ? (
-                                        <div className="h-64 w-full overflow-hidden rounded-xl">
-                                            <ParcelMap location={postmatLocation} />
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-600 text-sm">
-                                            No location available for this parcel.
-                                        </p>
-                                    )}
+                                <div className="p-6 rounded-xl shadow-md border border-gray-100">
+                                    {/* MAP CARD */}
+                                    <div className="p-1 rounded-xl">
+                                        {postmatLocation ? (
+                                            <div className="h-64 w-full overflow-hidden rounded-xl border">
+                                                <ParcelMap location={postmatLocation} />
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-600 text-sm">
+                                                No location available for this parcel.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <ParcelTimeline actualizations={selectedParcel.actualizations} />
                                 </div>
-
-                                <ParcelTimeline actualizations={selectedParcel.actualizations} />
-
                             </div>
                         ) : (
                             <div className="text-center bg-white/70 rounded-2xl py-16 shadow border">

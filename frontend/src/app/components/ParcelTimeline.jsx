@@ -10,7 +10,7 @@ export default function ParcelTimeline({ actualizations = [] }) {
     }
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+        <div className="p-6 rounded-xl">
             <h3 className="text-lg font-semibold text-blue-800 mb-4">
                 Parcel Timeline
             </h3>
