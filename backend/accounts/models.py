@@ -9,6 +9,8 @@ from rest_framework.authtoken.models import Token
 from django.utils.timezone import now
 from django.conf import settings
 
+import pyotp
+
 
 class ExpiringToken(Token):
     """Override for ExpiringToken"""
@@ -144,3 +146,15 @@ class ResetPasswordToken(models.Model):
     )
     token = models.CharField(max_length=1000, default=None, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class UserTOTP(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="totp")
+    secret = models.CharField(max_length=32)
+    confirmed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def provisioning_uri(self):
+        return pyotp.totp.TOTP(self.secret).provisioning_uri(
+            name=self.user.email, issuer_name="YourAppName"
+        )

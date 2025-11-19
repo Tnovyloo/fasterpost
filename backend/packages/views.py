@@ -7,7 +7,18 @@ from .models import Package, Actualization
 from accounts.models import User
 from postmats.models import Postmat
 
-from .serializers import PackageSerializer, PackageDetailSerializer, PackageListSerializer
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .serializers import SendPackageSerializer
+from accounts.authentication import CustomTokenAuthentication
+
+from .serializers import (
+    PackageSerializer,
+    PackageDetailSerializer,
+    PackageListSerializer,
+)
+
 
 class UserPackagesView(APIView):
     """
@@ -18,9 +29,11 @@ class UserPackagesView(APIView):
     def get(self, request):
         user = request.user
 
-        last_status_subquery = Actualization.objects.filter(
-            package_id=OuterRef("pk")
-        ).order_by("-created_at").values("status")[:1]
+        last_status_subquery = (
+            Actualization.objects.filter(package_id=OuterRef("pk"))
+            .order_by("-created_at")
+            .values("status")[:1]
+        )
 
         packages = (
             Package.objects.filter(sender=user)
@@ -34,13 +47,14 @@ class UserPackagesView(APIView):
 
     def post(self, request):
         data = request.data.copy()
-        data['sender'] = request.user.id
+        data["sender"] = request.user.id
         serializer = PackageSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
 class ParcelDetailView(APIView):
     """
     GET /user/parcels/<uuid:id>
@@ -51,9 +65,32 @@ class ParcelDetailView(APIView):
         try:
             package = Package.objects.get(id=id)
             if package.sender != user and package.receiver != user:
-                return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
+                )
         except Package.DoesNotExist:
-            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = PackageDetailSerializer(package)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SendPackageView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = SendPackageSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        package = serializer.save()
+
+        return Response(
+            {
+                "message": "Package registered successfully.",
+                "package_id": package.id,
+                "origin_postmat": str(package.origin_postmat.name),
+                "unlock_code": package.unlock_code,
+            }
+        )

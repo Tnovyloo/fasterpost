@@ -101,6 +101,20 @@ class LoginView(APIView):
             )
             # DONT Check if user is verified. to CHECK authentication
             if user:
+                try:
+                    totp = user.totp
+                    if totp.confirmed:
+                        if "code" not in validated_data:
+                            return Response(
+                                {"require_2fa": True, "message": "TOTP code required"},
+                                status=206,
+                            )
+
+                        if not pyotp.TOTP(totp.secret).verify(validated_data["code"]):
+                            return Response({"error": "Invalid TOTP code"}, status=404)
+                except UserTOTP.DoesNotExist:
+                    pass  # user does not use TOTP
+
                 # Make an Token for authorization and authentication
                 token, created = Token.objects.get_or_create(user=user)
 
