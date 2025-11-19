@@ -57,7 +57,7 @@ UserModel = get_user_model()
                     )
                 ],
             ),
-            401: OpenApiResponse(
+            404: OpenApiResponse(
                 description="Invalid credentials or user not verified."
             ),
             404: OpenApiResponse(description="Invalid request data."),
@@ -146,19 +146,19 @@ class LoginView(APIView):
                             data={
                                 "error": f"Invalid credentials for {validated_data['email']}"
                             },
-                            status=status.HTTP_401_UNAUTHORIZED,
+                            status=status.HTTP_406_NOT_ACCEPTABLE,
                         )
                     else:
                         return Response(
                             data={"error": f"User email is not verified!"},
-                            status=status.HTTP_401_UNAUTHORIZED,
+                            status=status.HTTP_406_NOT_ACCEPTABLE,
                         )
                 except Exception as e:
                     return Response(
                         data={
                             "error": f"Invalid credentials for {validated_data['email']}"
                         },
-                        status=status.HTTP_401_UNAUTHORIZED,
+                        status=status.HTTP_406_NOT_ACCEPTABLE,
                     )
 
         else:
