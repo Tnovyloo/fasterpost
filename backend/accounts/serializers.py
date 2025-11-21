@@ -107,3 +107,29 @@ class VerifyTOTPSerializer(serializers.Serializer):
 
 class DisableTOTPSerializer(serializers.Serializer):
     pass
+
+
+# Admin panel serializers
+# users/serializers.py
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Admin panel serializers."""
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "role",
+            "first_name",
+            "last_name",
+            "email",
+            "username",
+            "phone_number",
+            "date_joined",
+            "is_admin",
+            "is_staff",
+            "is_active",
+            "is_superuser",
+        ]
+        read_only_fields = ["date_joined", "id"]
