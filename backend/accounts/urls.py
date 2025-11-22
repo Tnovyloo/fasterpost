@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 from rest_framework.urlpatterns import format_suffix_patterns
 from .views.views_user import *
 from .views.views_token import *
@@ -6,6 +6,13 @@ from .views.views_info import *
 
 from .views import views_courier
 from .views import views_totp
+
+from rest_framework.routers import DefaultRouter
+from accounts.views.views_custom_admin import AdminUserViewSet
+
+
+router = DefaultRouter()
+router.register(r"admin/users", AdminUserViewSet, basename="admin-users")
 
 urlpatterns = [
     # URLs for Login and Register

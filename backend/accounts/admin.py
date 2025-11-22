@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 from django.utils import timezone
-from django.urls import reverse
+from django.urls import include, path, reverse
 from django.http import HttpResponseRedirect
 
 from accounts.models import (
@@ -257,3 +257,15 @@ class ExpiringTokenAdmin(admin.ModelAdmin):
 
 
 admin.site.register(UserTOTP)
+
+
+# CUSTOM ADMIN URLS
+from rest_framework.routers import DefaultRouter
+from accounts.views.views_custom_admin import AdminUserViewSet
+
+router = DefaultRouter()
+router.register(r"", AdminUserViewSet, basename="admin-users")
+
+urlpatterns = [
+    path("accounts/", include(router.urls)),
+]
