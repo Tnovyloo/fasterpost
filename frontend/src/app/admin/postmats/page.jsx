@@ -25,12 +25,30 @@ export default function AdminPostmatsPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Form & selection
+  const [showPostmatForm, setShowPostmatForm] = useState(false);
   const [selectedPostmat, setSelectedPostmat] = useState(null);
   const [showStashForm, setShowStashForm] = useState(false);
   const [selectedStash, setSelectedStash] = useState(null);
 
   // Map position (default somewhere in Europe – change if you want)
   const [mapPosition, setMapPosition] = useState([52.2297, 21.0122]);
+
+  const Collapse = ({ isOpen, children }) => {
+    const [height, setHeight] = useState("0px");
+
+    useEffect(() => {
+      setHeight(isOpen ? "1000px" : "0px"); // 1000px = more than enough
+    }, [isOpen]);
+
+    return (
+      <div
+        className="overflow-hidden transition-all duration-500 ease-in-out"
+        style={{ height }}
+      >
+        <div className="pt-6">{children}</div>
+      </div>
+    );
+  };
 
   const initialPostmatForm = {
     warehouse_id: "",
@@ -60,7 +78,7 @@ export default function AdminPostmatsPage() {
   // ── Fetch data ─────────────────────────────────
   const fetchWarehouses = useCallback(async () => {
     try {
-      const res = await api.get("/api/admin/warehouses/", getAuthConfig());
+      const res = await api.get("/api/admin/warehouses/simple", getAuthConfig());
       setWarehouses(res.data.results || res.data);
     } catch (err) {
       console.error(err);
@@ -153,7 +171,8 @@ export default function AdminPostmatsPage() {
   const resetPostmatForm = () => {
     setPostmatForm(initialPostmatForm);
     setSelectedPostmat(null);
-    setMapPosition([52.2297, 21.0122]); // fallback position
+    setMapPosition([52.2297, 21.0122]);
+    setShowPostmatForm(false)
   };
 
   const resetStashForm = () => {
@@ -196,6 +215,7 @@ export default function AdminPostmatsPage() {
 
   const editPostmat = pm => {
     setSelectedPostmat(pm);
+    setShowPostmatForm(true);
     setPostmatForm({
       warehouse_id: pm.warehouse_id || pm.warehouse?.id || "",
       name: pm.name,
@@ -274,90 +294,194 @@ export default function AdminPostmatsPage() {
           </div>
         </div>
 
-        {/* Postmat Form + Map */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
-          <h2 className="text-xl font-semibold">
-            {selectedPostmat ? "Edit Postmat" : "Create New Postmat"}
-          </h2>
+        {/* Postmat Form – Collapsible Card */}
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div 
+            className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white cursor-pointer flex items-center justify-between"
+            onClick={() => setShowPostmatForm(prev => !prev)}
+          >
+            <h2 className="text-xl font-semibold flex items-center gap-3">
+              <span className="text-2xl">{showPostmatForm ? "▼" : "▶"}</span>
+              {selectedPostmat ? "Edit Postmat" : "Create New Postmat"}
+            </h2>
+            <span className="text-sm opacity-90">
+              {showPostmatForm ? (selectedPostmat ? `Editing: ${selectedPostmat.name}` : 'Creating: New postmat') : "Click to expand"}
+            </span>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left side – Form */}
-            <div className="space-y-4">
-              <select name="warehouse_id" value={postmatForm.warehouse_id} onChange={handlePostmatChange} className="input-field w-full" required>
-                <option value="">Select Warehouse *</option>
-                {warehouses.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} – {w.city}
-                  </option>
-                ))}
-              </select>
+          {showPostmatForm && (
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left – Form */}
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Warehouse *</label>
+                    <select
+                      name="warehouse_id"
+                      value={postmatForm.warehouse_id}
+                      onChange={handlePostmatChange}
+                      className="input-field w-full"
+                      required
+                    >
+                      <option value="">Select Warehouse</option>
+                      {warehouses.map(w => (
+                        <option key={w.id} value={w.id}>
+                          {w.name} – {w.city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <input name="name" placeholder="Name (max 6 chars)" maxLength={6} value={postmatForm.name} onChange={handlePostmatChange} className="input-field w-full" required />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Name (max 6 chars) *</label>
+                    <input
+                      name="name"
+                      maxLength={6}
+                      value={postmatForm.name}
+                      onChange={handlePostmatChange}
+                      className="input-field w-full"
+                      required
+                    />
+                  </div>
 
-              <select name="status" value={postmatForm.status} onChange={handlePostmatChange} className="input-field w-full">
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status" value={postmatForm.status} onChange={handlePostmatChange} className="input-field w-full">
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="maintenance">Maintenance</option>
+                    </select>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <input placeholder="Latitude" value={postmatForm.latitude} readOnly className="input-field bg-gray-100" />
-                <input placeholder="Longitude" value={postmatForm.longitude} readOnly className="input-field bg-gray-100" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
+                      <input value={postmatForm.latitude} readOnly className="input-field bg-gray-50" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Longitude</label>
+                      <input value={postmatForm.longitude} readOnly className="input-field bg-gray-50" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code (optional)</label>
+                    <input
+                      name="postal_code"
+                      value={postmatForm.postal_code}
+                      onChange={handlePostmatChange}
+                      className="input-field w-full"
+                      placeholder="e.g. 00-000"
+                    />
+                  </div>
+                </div>
+
+                {/* Right – Map */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Click map to set location</label>
+                  <MapPicker position={mapPosition} setPosition={setMapPosition} />
+                </div>
               </div>
 
-              <input name="postal_code" placeholder="Postal Code (optional)" value={postmatForm.postal_code} onChange={handlePostmatChange} className="input-field w-full" />
-
-              <div className="flex gap-3 pt-4">
-                <button onClick={savePostmat} className="btn-primary bg-green-600">
-                  {selectedPostmat ? "Update" : "Create"} Postmat
+              {/* Button Bar – Fixed at bottom */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 -mx-6 px-6 pb-2 bg-gray-50">
+                <button
+                  onClick={resetPostmatForm}
+                  className="px-6 py-2.5 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition"
+                >
+                  Cancel
                 </button>
-                {selectedPostmat && <button onClick={resetPostmatForm} className="btn-secondary">Cancel</button>}
+                <button
+                  onClick={savePostmat}
+                  className="px-8 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition shadow-md"
+                >
+                  {selectedPostmat ? "Update Postmat" : "Create Postmat"}
+                </button>
               </div>
             </div>
-
-            {/* Right side – Map */}
-            <MapPicker position={mapPosition} setPosition={setMapPosition} />
-          </div>
+          )}
         </div>
 
-        {/* Stash Form (same as before) */}
-        {showStashForm && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border">
-            <h2 className="text-xl font-semibold mb-4">{selectedStash ? "Edit Stash" : "Add New Stash"}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <select name="postmat" value={stashForm.postmat} onChange={handleStashChange} className="input-field" required>
-                <option value="">Select Postmat</option>
-                {postmats.map(pm => (
-                  <option key={pm.id} value={pm.id}>
-                    {pm.name}
-                  </option>
-                ))}
-              </select>
-              <select name="size" value={stashForm.size} onChange={handleStashChange} className="input-field">
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" name="is_empty" checked={stashForm.is_empty} onChange={handleStashChange} />
-                <span>Is Empty</span>
-              </label>
-              <input type="datetime-local" name="reserved_until" value={stashForm.reserved_until} onChange={handleStashChange} className="input-field" />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={saveStash} className="btn-primary bg-blue-600">
-                {selectedStash ? "Update" : "Create"} Stash
-              </button>
-              <button onClick={resetStashForm} className="btn-secondary">Cancel</button>
-            </div>
+        {/* Stash Form – Same style */}
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-8">
+          <div 
+            className="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white cursor-pointer flex items-center justify-between"
+            onClick={() => setShowStashForm(prev => !prev)}
+          >
+            <h2 className="text-xl font-semibold flex items-center gap-3">
+              <span className="text-2xl">{showStashForm ? "▼" : "▶"}</span>
+              {selectedStash ? "Edit Stash" : "Add New Stash"}
+            </h2>
+            <span className="text-sm opacity-90">
+              {showStashForm ? (selectedStash ? `Editing: Stash` : 'Creating: New stash') : "Click to expand"}
+            </span>
           </div>
-        )}
 
-        {!showStashForm && (
-          <button onClick={() => setShowStashForm(true)} className="btn-primary bg-indigo-600">
-            + Add New Stash
-          </button>
-        )}
+          {showStashForm && (
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Postmat *</label>
+                  <select name="postmat" value={stashForm.postmat} onChange={handleStashChange} className="input-field w-full" required>
+                    <option value="">Select Postmat</option>
+                    {postmats.map(pm => (
+                      <option key={pm.id} value={pm.id}>{pm.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Size</label>
+                  <select name="size" value={stashForm.size} onChange={handleStashChange} className="input-field w-full">
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="is_empty"
+                      checked={stashForm.is_empty}
+                      onChange={handleStashChange}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Is Empty</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Reserved Until (optional)</label>
+                  <input
+                    type="datetime-local"
+                    name="reserved_until"
+                    value={stashForm.reserved_until ? stashForm.reserved_until.slice(0, 16) : ""}
+                    onChange={handleStashChange}
+                    className="input-field w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Button Bar */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 -mx-6 px-6 pb-2 bg-gray-50">
+                <button
+                  onClick={resetStashForm}
+                  className="px-6 py-2.5 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveStash}
+                  className="px-8 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition shadow-md"
+                >
+                  {selectedStash ? "Update Stash" : "Create Stash"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Postmats Table */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

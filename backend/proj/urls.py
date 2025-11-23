@@ -12,6 +12,7 @@ urlpatterns = [
 
     path("api/admin/", include("accounts.admin")),
     path("api/admin/", include("postmats.admin")),
+    path("api/admin/", include("logistics.admin")),
 
     path("api/postmats/", include("postmats.urls")),
     path("api/packages/", include("packages.urls")),
