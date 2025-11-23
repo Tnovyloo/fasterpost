@@ -9,7 +9,7 @@ class Postmat(models.Model):
         MAINTENANCE = 'maintenance', 'Maintenance'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    warehouse_id = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name='postmats')
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name='postmats')
     name = models.CharField(max_length=6)
     status = models.CharField(max_length=20, choices=PostmatStatus.choices, default='active')
     latitude = models.FloatField()

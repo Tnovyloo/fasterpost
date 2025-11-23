@@ -9,7 +9,7 @@ import ParcelTimeline from "../components/ParcelTimeline";
 
 import api from "@/axios/api";
 
-const ParcelMap = dynamic(() => import('../components/ParcelMap'), {
+const ParcelMap = dynamic(() => import('../components/ParcelMapSendPackage'), {
     ssr: false,
     loading: () => <p>Loading...</p>,
 });
@@ -128,7 +128,7 @@ export default function ParcelHistoryPage() {
                                     <div className="p-1 rounded-xl">
                                         {postmatLocation ? (
                                             <div className="h-64 w-full overflow-hidden rounded-xl border">
-                                                <ParcelMap location={postmatLocation} />
+                                                <ParcelMapSendPackage location={postmatLocation} />
                                             </div>
                                         ) : (
                                             <p className="text-gray-600 text-sm">
