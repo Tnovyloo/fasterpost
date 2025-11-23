@@ -33,23 +33,6 @@ export default function AdminPostmatsPage() {
   // Map position (default somewhere in Europe – change if you want)
   const [mapPosition, setMapPosition] = useState([52.2297, 21.0122]);
 
-  const Collapse = ({ isOpen, children }) => {
-    const [height, setHeight] = useState("0px");
-
-    useEffect(() => {
-      setHeight(isOpen ? "1000px" : "0px"); // 1000px = more than enough
-    }, [isOpen]);
-
-    return (
-      <div
-        className="overflow-hidden transition-all duration-500 ease-in-out"
-        style={{ height }}
-      >
-        <div className="pt-6">{children}</div>
-      </div>
-    );
-  };
-
   const initialPostmatForm = {
     warehouse_id: "",
     name: "",
@@ -64,7 +47,8 @@ export default function AdminPostmatsPage() {
     postmat: "",
     size: "medium",
     is_empty: true,
-    reserved_until: "",
+    reserved_until: null,
+    clear_reserved_until: false
   };
   const [stashForm, setStashForm] = useState(initialStashForm);
 
@@ -150,22 +134,24 @@ export default function AdminPostmatsPage() {
     setPostmatForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleStashChange = e => {
+  const handleStashChange = (e) => {
     const { name, value, type, checked } = e.target;
-    let finalValue = type === "checkbox" ? checked : value;
 
-    if (name === "reserved_until") {
-      if (value === "") {
-        finalValue = null;
-      } else if (value.length === 16) {
-        finalValue = value + ":00";
-      }
+    if (name === "clear_reserved_until") {
+      setStashForm(prev => ({
+        ...prev,
+        clear_reserved_until: checked,
+        reserved_until: checked ? null : prev.reserved_until  // ← ONLY THIS LINE MATTERS
+      }));
+      return;
     }
 
-    setStashForm(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : finalValue,
-    }));
+    // For datetime-local: just add seconds if needed
+    if (name === "reserved_until" && value && value.length === 16) {
+      setStashForm(prev => ({ ...prev, reserved_until: value + ":00" }));
+    } else {
+      setStashForm(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    }
   };
 
   const resetPostmatForm = () => {
@@ -208,6 +194,7 @@ export default function AdminPostmatsPage() {
       }
       resetStashForm();
       fetchStashes();
+      fetchPostmats();
     } catch (err) {
       alert("Error: " + JSON.stringify(err.response?.data || err.message));
     }
@@ -443,22 +430,25 @@ export default function AdminPostmatsPage() {
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      name="is_empty"
-                      checked={stashForm.is_empty}
+                      name="clear_reserved_until"
+                      checked={stashForm.clear_reserved_until || false}
                       onChange={handleStashChange}
-                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                      className="w-5 h-5 text-red-600 rounded focus:ring-red-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">Is Empty</span>
+                    <span className="text-sm font-medium text-red-600">Clear reserved until</span>
                   </label>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reserved Until (optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reserved Until (optional)
+                  </label>
                   <input
                     type="datetime-local"
                     name="reserved_until"
-                    value={stashForm.reserved_until ? stashForm.reserved_until.slice(0, 16) : ""}
+                    value={stashForm.clear_reserved_until ? "" : (stashForm.reserved_until?.slice(0, 16) || "")}
                     onChange={handleStashChange}
+                    disabled={stashForm.clear_reserved_until}
                     className="input-field w-full"
                   />
                 </div>
@@ -508,7 +498,7 @@ export default function AdminPostmatsPage() {
                     <tr><td colSpan={6} className="px-6 py-12 text-center">No postmats found</td></tr>
                   ) : (
                     postmats.map(pm => {
-                      const pmStashes = getStashesForPostmat(pm.id);
+                      const pmStashes = pm.stashes;
                       return (
                         <tr key={pm.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 font-medium">{pm.name}</td>

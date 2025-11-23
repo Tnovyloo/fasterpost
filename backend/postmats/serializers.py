@@ -31,12 +31,13 @@ class PostmatAdminSerializer(serializers.ModelSerializer):
     warehouse_id = serializers.PrimaryKeyRelatedField(
         queryset=Warehouse.objects.all(), source="warehouse", write_only=True
     )
+    stashes = StashSerializer(many=True)
 
     class Meta:
         model = Postmat
         fields = [
             "id", "warehouse", "warehouse_id", "name", "status",
-            "latitude", "longitude", "postal_code"
+            "latitude", "longitude", "postal_code", "stashes"
         ]
         read_only_fields = ["id"]
 
@@ -45,6 +46,7 @@ class StashAdminSerializer(serializers.ModelSerializer):
         queryset=Postmat.objects.all(), write_only=True
     )
     postmat_detail = PostmatAdminSerializer(source="postmat", read_only=True)
+    reserved_until = serializers.DateTimeField(allow_null=True, required=False)
 
     class Meta:
         model = Stash
@@ -52,4 +54,8 @@ class StashAdminSerializer(serializers.ModelSerializer):
             "id", "postmat", "postmat_detail",
             "size", "is_empty", "reserved_until"
         ]
+        extra_kwargs = {
+            "reserved_until": {"allow_null": True, "required": False},
+        }
         read_only_fields = ["id"]
+
