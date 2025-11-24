@@ -12,7 +12,7 @@ from accounts.views.views_custom_admin import AdminUserViewSet
 
 
 router = DefaultRouter()
-router.register(r"admin/users", AdminUserViewSet, basename="admin-users")
+router.register(r"users", AdminUserViewSet, basename="admin-users")
 
 urlpatterns = [
     # URLs for Login and Register
