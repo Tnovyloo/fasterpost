@@ -166,7 +166,7 @@ class RegistrationTestCase(AuthenticationAPITestCase):
 
         self.assertEqual(
             login_response.status_code,
-            401,
+            404,
             msg=f"Trying to login with unverified user. Response should be 401 with proper information of error: {login_response.data, login_response.status_code}",
         )
 
@@ -490,7 +490,7 @@ class RegistrationTestCase(AuthenticationAPITestCase):
             },
         )
 
-        self.assertEqual(401, response.status_code)
+        self.assertEqual(404, response.status_code)
 
     # This maybe will be on other test Class
     def test_http_cookie_auth(self):
@@ -757,7 +757,7 @@ class LoginTestCase(AuthenticationAPITestCase):
         response = self.client.post(
             self.login_url, data={"email": self.user_dict["email"], "password": "wrong"}
         )
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 404)
 
         response = self.client.post(
             self.login_url,
@@ -766,7 +766,7 @@ class LoginTestCase(AuthenticationAPITestCase):
                 "password": self.user_dict["password"] + "123",
             },
         )
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 404)
 
     def test_two_sessions_on_one_account(self):
         """Test two sessions on one account, login on two sessions and then logout on one and check if second session is still authorized"""
@@ -858,7 +858,7 @@ class LoginTestCase(AuthenticationAPITestCase):
                 "password": self.user_dict["password"] + "123",
             },
         )
-        self.assertEqual(401, response.status_code)
+        self.assertEqual(404, response.status_code)
         self.assertFalse(
             Token.objects.filter(user__email=self.user_dict["email"]).exists()
         )
@@ -965,7 +965,7 @@ class PasswordResetTestCase(AuthenticationAPITestCase):
                 "password": self.user_dict["password"],
             },
         )
-        self.assertEqual(401, response.status_code)
+        self.assertEqual(404, response.status_code)
 
         # Login after changing password
         response = self.client.post(
@@ -1094,7 +1094,7 @@ class PasswordResetTestCase(AuthenticationAPITestCase):
                 "password": self.user_dict["password"],
             },
         )
-        self.assertEqual(401, response.status_code)
+        self.assertEqual(404, response.status_code)
 
         # Try to login with new password
         response = self.client.post(

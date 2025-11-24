@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/Header";
 import api from "@/axios/api";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -139,6 +140,10 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+
+            <div className="text-sm font-medium text-blue-900 mb-1 block mt-3 text-justify mx-auto">
+              Forgot password? you could <Link href={"/password-reset"} className="font-bold">Reset it</Link>
+            </div>
           </div>
         </div>
       </main>

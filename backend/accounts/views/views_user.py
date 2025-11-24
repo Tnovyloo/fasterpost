@@ -146,19 +146,19 @@ class LoginView(APIView):
                             data={
                                 "error": f"Invalid credentials for {validated_data['email']}"
                             },
-                            status=status.HTTP_401_UNAUTHORIZED,
+                            status=status.HTTP_404_NOT_FOUND,
                         )
                     else:
                         return Response(
                             data={"error": f"User email is not verified!"},
-                            status=status.HTTP_401_UNAUTHORIZED,
+                            status=status.HTTP_404_NOT_FOUND,
                         )
                 except Exception as e:
                     return Response(
                         data={
                             "error": f"Invalid credentials for {validated_data['email']}"
                         },
-                        status=status.HTTP_401_UNAUTHORIZED,
+                        status=status.HTTP_404_NOT_FOUND,
                     )
 
         else:
