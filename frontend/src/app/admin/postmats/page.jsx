@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/axios/api";
 import Header from "@/app/components/Header";
+import PostmatRow from "@/app/components/PostmatRow";
 import dynamic from "next/dynamic";
 
 export default function AdminPostmatsPage() {
@@ -495,35 +496,25 @@ export default function AdminPostmatsPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {postmats.length === 0 ? (
-                    <tr><td colSpan={6} className="px-6 py-12 text-center">No postmats found</td></tr>
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                        No postmats found
+                      </td>
+                    </tr>
                   ) : (
                     postmats.map(pm => {
-                      const pmStashes = pm.stashes;
+                      const pmStashes = pm.stashes || [];
+
                       return (
-                        <tr key={pm.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 font-medium">{pm.name}</td>
-                          <td className="px-6 py-4">{pm.warehouse?.city || pm.warehouse_id}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              pm.status === "active" ? "bg-green-100 text-green-800" :
-                              pm.status === "inactive" ? "bg-red-100 text-red-800" :
-                              "bg-yellow-100 text-yellow-800"
-                            }`}>
-                              {pm.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm">
-                            {pm.latitude.toFixed(4)}, {pm.longitude.toFixed(4)}
-                            {pm.postal_code && ` (${pm.postal_code})`}
-                          </td>
-                          <td className="px-6 py-4 text-sm">
-                            {pmStashes.length} stashes
-                          </td>
-                          <td className="px-6 py-4 space-x-3">
-                            <button onClick={() => editPostmat(pm)} className="text-blue-600 hover:text-blue-800">Edit</button>
-                            <button onClick={() => deletePostmat(pm.id)} className="text-red-600 hover:text-red-800">Delete</button>
-                          </td>
-                        </tr>
+                        <PostmatRow
+                          key={pm.id}
+                          postmat={pm}
+                          stashes={pmStashes}
+                          onEditPostmat={editPostmat}
+                          onDeletePostmat={deletePostmat}
+                          onEditStash={editStash}
+                          onDeleteStash={deleteStash}
+                        />
                       );
                     })
                   )}
