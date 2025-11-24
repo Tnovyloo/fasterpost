@@ -9,7 +9,11 @@ from drf_spectacular.views import (
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
+
     path("api/admin/", include("accounts.admin")),
+    path("api/admin/", include("postmats.admin")),
+    path("api/admin/", include("logistics.admin")),
+
     path("api/postmats/", include("postmats.urls")),
     path("api/packages/", include("packages.urls")),
     # Swagger/OpenAPI documentation

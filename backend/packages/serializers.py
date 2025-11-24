@@ -9,14 +9,14 @@ from .utils import generate_unlock_code, find_nearest_postmat_with_stash
 
 
 class PackageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source="sender.firstname", read_only=True)
-    receiver_name = serializers.CharField(source="receiver.firstname", read_only=True)
-    origin_postmat_name = serializers.CharField(
-        source="origin_postmat.name", read_only=True
-    )
-    destination_postmat_name = serializers.CharField(
-        source="destination_postmat.name", read_only=True
-    )
+    sender_name = serializers.CharField(source='sender.firstname', read_only=True)
+    receiver_name = serializers.CharField(source='receiver.firstname', read_only=True)
+
+    origin_postmat_name = serializers.CharField(source='origin_postmat.name', read_only=True)
+    destination_postmat_name = serializers.CharField(source='destination_postmat.name', read_only=True)
+    
+    destination_postmat_lat = serializers.CharField(source='destination_postmat.latitude', read_only=True)
+    destination_postmat_long = serializers.CharField(source='destination_postmat.longitude', read_only=True)
 
     class Meta:
         model = Package
@@ -65,6 +65,10 @@ class ActualizationSerializer(serializers.ModelSerializer):
 
 class PackageDetailSerializer(serializers.ModelSerializer):
     actualizations = ActualizationSerializer(many=True, read_only=True)
+    size_display = serializers.CharField(source="get_size_display", read_only=True)
+
+    destination_postmat_lat = serializers.CharField(source='destination_postmat.latitude', read_only=True)
+    destination_postmat_long = serializers.CharField(source='destination_postmat.longitude', read_only=True)
 
     class Meta:
         model = Package

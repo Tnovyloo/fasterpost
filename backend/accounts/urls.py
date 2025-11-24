@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.urlpatterns import format_suffix_patterns
 from .views.views_user_auth import *
 from .views.views_token import *
+from .views.views_info import *
 
 from .views import views_courier
 from .views import views_totp
@@ -12,7 +13,7 @@ from accounts.views.views_custom_admin import AdminUserViewSet
 
 
 router = DefaultRouter()
-router.register(r"admin/users", AdminUserViewSet, basename="admin-users")
+router.register(r"users", AdminUserViewSet, basename="admin-users")
 
 urlpatterns = [
     # URLs for Login and Register
@@ -49,4 +50,6 @@ urlpatterns = [
     path("bussiness", views_courier.BusinessDashboardView.as_view()),
     path("base", views_courier.NormalUserDashboardView.as_view()),
     path("user/", views_user.UserProfileView.as_view(), name="user-profile"),
+    path("user/info/", views_courier.UserInfoView.as_view(), name="user-info"),
+    path("user/me/", CurrentUserRetrieveUpdateView.as_view(), name="current-user")
 ]

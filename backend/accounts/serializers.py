@@ -97,6 +97,44 @@ class UserUnSafeSerializerForTests(serializers.ModelSerializer):
         ]
 
 
+class SafeUserSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "username",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "role",
+            "date_joined"
+        )
+        read_only_fields = ("id", "role", "date_joined")
+
+    def validate_username(self, value):
+        user = self.context["request"].user
+        qs = User.objects.filter(username__iexact=value).exclude(pk=user.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This username is already taken.")
+        return value
+    
+    def validate_email(self, value):
+        user = self.context["request"].user
+        qs = User.objects.filter(email__iexact=value).exclude(pk=user.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This email is already taken.")
+        return value
+    
+    def update(self, instance, validated_data):
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+        return instance
+
+
 class EnableTOTPSerializer(serializers.Serializer):
     pass  # no input
 
@@ -159,7 +197,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 "Last name must be at least 2 characters long."
             )
         return value
-
 
 # Admin panel serializers
 # users/serializers.py
