@@ -45,7 +45,7 @@ class PostmatAdminViewSet(viewsets.ModelViewSet):
         if ordering and ordering in allowed_ordering:
             qs = qs.order_by(ordering)
         else:
-            qs = qs.order_by("-id")  # default
+            qs = qs.order_by("name")
 
         return qs
     

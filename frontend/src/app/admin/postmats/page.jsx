@@ -41,6 +41,7 @@ export default function AdminPostmatsPage() {
     latitude: "",
     longitude: "",
     postal_code: "",
+    stashes: []
   };
   const [postmatForm, setPostmatForm] = useState(initialPostmatForm);
 
@@ -237,6 +238,7 @@ export default function AdminPostmatsPage() {
   const deleteStash = async id => {
     if (!confirm("Delete this stash?")) return;
     await api.delete(`${API_BASE_STASH}/${id}/`, getAuthConfig());
+    fetchPostmats();
     fetchStashes();
   };
 

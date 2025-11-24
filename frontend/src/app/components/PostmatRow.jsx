@@ -15,7 +15,7 @@ export default function CollapsiblePostmatRow({ postmat, stashes, onEditPostmat,
         <td className="px-6 py-4 font-medium">
           <div className="flex items-center gap-2">
             <span className={`transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}>
-              Right Arrow
+              ▶
             </span>
             {postmat.name}
           </div>
@@ -27,7 +27,7 @@ export default function CollapsiblePostmatRow({ postmat, stashes, onEditPostmat,
             postmat.status === "inactive" ? "bg-red-100 text-red-800" :
             "bg-yellow-100 text-yellow-800"
           }`}>
-            {postmat.status}
+            {postmat.display_status}
           </span>
         </td>
         <td className="px-6 py-4 text-sm">
@@ -70,7 +70,7 @@ export default function CollapsiblePostmatRow({ postmat, stashes, onEditPostmat,
                       className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:shadow transition-shadow"
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm flex-1">
-                        <div><strong>Size:</strong> {stash.size}</div>
+                        <div><strong>Size:</strong> {stash.display_size}</div>
                         <div>
                           <strong>Empty:</strong>{" "}
                           {stash.is_empty ? (
@@ -84,7 +84,7 @@ export default function CollapsiblePostmatRow({ postmat, stashes, onEditPostmat,
                           {stash.reserved_until ? (
                             new Date(stash.reserved_until).toLocaleString()
                           ) : (
-                            <span className="text-gray-400">Never</span>
+                            <span className="text-gray-400">N/A</span>
                           )}
                         </div>
                         <div><strong>ID:</strong> {stash.id}</div>
