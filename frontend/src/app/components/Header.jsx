@@ -81,7 +81,7 @@ export default function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex gap-6 text-blue-800 font-medium">
           <NavLink href="/">Home</NavLink>
-          <NavLink href="/test-user">Test user</NavLink>
+          <NavLink href="/user">Account</NavLink>
           {!isLoggedIn ? (
             <>
               <NavLink href="/login">Login</NavLink>
@@ -90,7 +90,7 @@ export default function Header() {
           ) : (
             <>
               <NavLink href="/send-package">Send package</NavLink>
-              <NavLink href="/user/totp">TOTP</NavLink>
+              <NavLink href="/user/settings">Settings</NavLink>
               <button
                 onClick={handleLogout}
                 className="text-blue-700 hover:text-blue-900 font-medium transition"
@@ -129,7 +129,6 @@ export default function Header() {
       {menuOpen && (
         <nav className="md:hidden flex flex-col items-center gap-4 bg-white/90 backdrop-blur-lg border-t border-blue-100 py-4 text-blue-800 font-medium animate-fade-in">
           <NavLink href="/" onClick={() => setMenuOpen(false)}>Home</NavLink>
-          <NavLink href="/test-user" onClick={() => setMenuOpen(false)}>Test user</NavLink>
           {!isLoggedIn ? (
             <>
               <NavLink href="/login" onClick={() => setMenuOpen(false)}>Login</NavLink>

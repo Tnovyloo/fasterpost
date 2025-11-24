@@ -109,6 +109,58 @@ class DisableTOTPSerializer(serializers.Serializer):
     pass
 
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serializer for displaying user profile information"""
+
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "username",
+            "email",
+            "phone_number",
+            "role",
+            "role_display",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "email", "role", "role_display", "date_joined"]
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating user profile information"""
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "username", "phone_number"]
+
+    def validate_username(self, value):
+        """Ensure username is unique, excluding current user"""
+        user = self.context["request"].user
+        if User.objects.exclude(pk=user.pk).filter(username=value).exists():
+            raise serializers.ValidationError("This username is already taken.")
+        return value
+
+    def validate_first_name(self, value):
+        """Optional: Add first name validation"""
+        if value and len(value) < 2:
+            raise serializers.ValidationError(
+                "First name must be at least 2 characters long."
+            )
+        return value
+
+    def validate_last_name(self, value):
+        """Optional: Add last name validation"""
+        if value and len(value) < 2:
+            raise serializers.ValidationError(
+                "Last name must be at least 2 characters long."
+            )
+        return value
+
+
 # Admin panel serializers
 # users/serializers.py
 

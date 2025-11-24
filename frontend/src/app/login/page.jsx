@@ -141,7 +141,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="text-sm font-medium text-blue-900 mb-1 block mt-3 text-justify mx-auto">
+            <div className="text-sm font-medium text-blue-900 mb-1 block mt-3 text-center mx-auto">
               Forgot password? you could <Link href={"/password-reset"} className="font-bold">Reset it</Link>
             </div>
           </div>
