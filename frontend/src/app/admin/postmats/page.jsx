@@ -24,6 +24,7 @@ export default function AdminPostmatsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+  const [sortBy, setSortBy] = useState("name");
 
   // Form & selection
   const [showPostmatForm, setShowPostmatForm] = useState(false);
@@ -87,6 +88,7 @@ export default function AdminPostmatsPage() {
       if (search) params.append("search", search);
       if (statusFilter) params.append("status", statusFilter);
       if (warehouseFilter) params.append("warehouse", warehouseFilter);
+      if (sortBy) params.append("ordering", sortBy);
       params.append("page", page);
       params.append("page_size", pageSize);
 
@@ -100,7 +102,7 @@ export default function AdminPostmatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, statusFilter, warehouseFilter]);
+  }, [page, pageSize, search, statusFilter, warehouseFilter, sortBy]);
 
   const fetchStashes = async () => {
     try {
@@ -251,23 +253,28 @@ export default function AdminPostmatsPage() {
       <div className="p-6 max-w-7xl mx-auto space-y-8 text-black bg-white mt-16 rounded-xl">
         <h1 className="text-4xl font-bold">Postmats & Stashes Management</h1>
 
-        {/* Filters */}
+        {/* Filters + Sorting */}
         <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <h2 className="text-xl font-semibold mb-4">Filters</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <h2 className="text-xl font-semibold mb-4">Filters & Sorting</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search */}
             <input
               type="text"
-              placeholder="Search by name..."
+              placeholder="Search by name or postal code..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+
+            {/* Status Filter */}
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-field">
               <option value="">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="maintenance">Maintenance</option>
             </select>
+
+            {/* Warehouse Filter */}
             <select value={warehouseFilter} onChange={e => setWarehouseFilter(e.target.value)} className="input-field">
               <option value="">All Warehouses</option>
               {warehouses.map(w => (
@@ -276,10 +283,26 @@ export default function AdminPostmatsPage() {
                 </option>
               ))}
             </select>
+
+            {/* Sorting Dropdown */}
+            <select 
+              value={sortBy} 
+              onChange={e => setSortBy(e.target.value)} 
+              className="input-field font-medium"
+            >
+              <option value="">Default Sort</option>
+              <option value="name">Name (A → Z)</option>
+              <option value="-name">Name (Z → A)</option>
+              <option value="status">Status</option>
+              <option value="-status">Status (desc)</option>
+            </select>
+
+            {/* Page Size */}
             <select value={pageSize} onChange={e => setPageSize(Number(e.target.value))} className="input-field">
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
             </select>
           </div>
         </div>
