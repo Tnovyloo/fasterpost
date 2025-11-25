@@ -11,5 +11,5 @@ def create_initial_actualization(sender, instance, created, **kwargs):
     if created and not instance.actualizations.exists():
         Actualization.objects.create(
             package_id=instance,
-            status="Created",
+            status="created",
         )

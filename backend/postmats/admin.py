@@ -1,10 +1,16 @@
 from django.contrib import admin
+from rest_framework.routers import DefaultRouter
+from .views.views_admin import (
+    PostmatAdminViewSet,
+    StashAdminViewSet,
+)
+
+from django.urls import path, include
 
 from .models import Postmat, Stash
 
 from django.contrib import admin
 from .models import Postmat, Stash
-
 
 @admin.register(Postmat)
 class PostmatAdmin(admin.ModelAdmin):
@@ -22,3 +28,11 @@ class StashAdmin(admin.ModelAdmin):
     search_fields = ('postmat__name',)
     ordering = ('postmat', 'size')
     list_per_page = 20
+
+router = DefaultRouter()
+router.register(r"postmats", PostmatAdminViewSet, basename="admin-postmats")
+router.register(r"stashes", StashAdminViewSet, basename="admin-stashes")
+
+urlpatterns = [
+    path("", include(router.urls)),
+]
