@@ -3,17 +3,17 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import OuterRef, Subquery
 
-from .models import Package, Actualization
+from ..models import Package, Actualization
 from accounts.models import User
 from postmats.models import Postmat
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .serializers import SendPackageSerializer
+from ..serializers import SendPackageSerializer
 from accounts.authentication import CustomTokenAuthentication
 
-from .serializers import (
+from ..serializers import (
     PackageSerializer,
     PackageDetailSerializer,
     PackageListSerializer,
