@@ -49,4 +49,5 @@ urlpatterns = [
     path("bussiness", views_courier.BusinessDashboardView.as_view()),
     path("base", views_courier.NormalUserDashboardView.as_view()),
     path("user/", views_user.UserProfileView.as_view(), name="user-profile"),
+    path("user/role/", views_user.UserRoleView.as_view(), name="user-role"),
 ]

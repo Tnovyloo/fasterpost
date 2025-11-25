@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserPackagesView, ParcelDetailView, SendPackageView
+from .views.views_packages import UserPackagesView, ParcelDetailView, SendPackageView
 
 urlpatterns = [
     path("user/", UserPackagesView.as_view()),

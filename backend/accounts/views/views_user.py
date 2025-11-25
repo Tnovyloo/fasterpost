@@ -61,3 +61,32 @@ class UserProfileView(APIView):
             {"error": "Validation failed", "details": serializer.errors},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class UserRoleView(APIView):
+    def get(self, request):
+        user = request.user
+
+        if not user.is_anonymous:
+            return Response(
+                {
+                    "role": user.role,
+                    "is_admin": user.is_admin,
+                    "is_staff": user.is_staff,
+                    "is_active": user.is_active,
+                    "is_superuser": user.is_superuser,
+                },
+                status=200,
+            )
+
+        else:
+            return Response(
+                {
+                    "role": "anonymous",
+                    "is_admin": False,
+                    "is_staff": False,
+                    "is_active": False,
+                    "is_superuser": False,
+                },
+                status=200,
+            )

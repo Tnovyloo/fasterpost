@@ -267,5 +267,5 @@ router = DefaultRouter()
 router.register(r"", AdminUserViewSet, basename="admin-users")
 
 urlpatterns = [
-    path("accounts/", include(router.urls)),
+    path("/", include(router.urls)),
 ]

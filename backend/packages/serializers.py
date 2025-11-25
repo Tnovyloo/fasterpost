@@ -147,3 +147,126 @@ class SendPackageSerializer(serializers.Serializer):
         )
 
         return package
+
+
+# Admin page serializers:
+from rest_framework import serializers
+from packages.models import Package, Actualization
+from postmats.models import Postmat
+from accounts.models import User
+
+
+class PostmatMinimalSerializer(serializers.ModelSerializer):
+    warehouse_name = serializers.CharField(source="warehouse_id.name", read_only=True)
+
+    class Meta:
+        model = Postmat
+        fields = [
+            "id",
+            "name",
+            "warehouse_name",
+            "status",
+            "latitude",
+            "longitude",
+            "postal_code",
+        ]
+
+
+class UserMinimalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name"]
+
+
+class ActualizationSerializer(serializers.ModelSerializer):
+    courier = UserMinimalSerializer(source="courier_id", read_only=True)
+    warehouse_name = serializers.CharField(source="warehouse_id.name", read_only=True)
+
+    class Meta:
+        model = Actualization
+        fields = [
+            "id",
+            "status",
+            "courier",
+            "warehouse_name",
+            "route_remaining",
+            "created_at",
+        ]
+
+
+class PackageAdminSerializer(serializers.ModelSerializer):
+    origin_postmat_detail = PostmatMinimalSerializer(
+        source="origin_postmat", read_only=True
+    )
+    destination_postmat_detail = PostmatMinimalSerializer(
+        source="destination_postmat", read_only=True
+    )
+    sender_detail = UserMinimalSerializer(source="sender", read_only=True)
+    latest_actualization = serializers.SerializerMethodField()
+    actualizations = ActualizationSerializer(many=True, read_only=True)
+
+    # Writable fields for updates
+    origin_postmat = serializers.PrimaryKeyRelatedField(queryset=Postmat.objects.all())
+    destination_postmat = serializers.PrimaryKeyRelatedField(
+        queryset=Postmat.objects.all()
+    )
+    sender = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+
+    class Meta:
+        model = Package
+        fields = [
+            "id",
+            "pickup_code",
+            "unlock_code",
+            "origin_postmat",
+            "origin_postmat_detail",
+            "destination_postmat",
+            "destination_postmat_detail",
+            "sender",
+            "sender_detail",
+            "receiver_name",
+            "receiver_phone",
+            "size",
+            "weight",
+            "route_path",
+            "latest_actualization",
+            "actualizations",
+        ]
+
+    def get_latest_actualization(self, obj):
+        latest = obj.actualizations.order_by("-created_at").first()
+        if latest:
+            return ActualizationSerializer(latest).data
+        return None
+
+
+class PackageListSerializer(serializers.ModelSerializer):
+    """Lighter serializer for list view"""
+
+    origin_postmat_name = serializers.CharField(
+        source="origin_postmat.name", read_only=True
+    )
+    destination_postmat_name = serializers.CharField(
+        source="destination_postmat.name", read_only=True
+    )
+    sender_email = serializers.CharField(source="sender.email", read_only=True)
+    latest_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Package
+        fields = [
+            "id",
+            "pickup_code",
+            "origin_postmat_name",
+            "destination_postmat_name",
+            "sender_email",
+            "receiver_name",
+            "receiver_phone",
+            "size",
+            "weight",
+            "latest_status",
+        ]
+
+    def get_latest_status(self, obj):
+        latest = obj.actualizations.order_by("-created_at").first()
+        return latest.status if latest else "created"
