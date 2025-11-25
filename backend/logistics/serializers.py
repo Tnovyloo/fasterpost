@@ -18,7 +18,7 @@ class WarehouseAdminSerializer(serializers.ModelSerializer):
 class WarehouseConnectionSerializer(serializers.Serializer):
     """Serializer for warehouse connection details"""
     id = serializers.UUIDField()
-    distance = serializers.FloatField()
+    distance = serializers.FloatField(read_only=True)
 
 
 class WarehouseListSerializer(serializers.ModelSerializer):
