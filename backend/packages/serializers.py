@@ -106,7 +106,9 @@ class SendPackageSerializer(serializers.Serializer):
         size = validated_data["size"]
 
         # 1. Find stash in origin postmat
-        stash = origin_pm.stashes.filter(size=size, is_empty=True).first()
+        stash = origin_pm.stashes.filter(
+            size=size, is_empty=True, reserved_until__isnull=True
+        ).first()
 
         if not stash:
             # 2. Find nearest postmat
@@ -120,7 +122,7 @@ class SendPackageSerializer(serializers.Serializer):
             stash = alt_pm.stashes.filter(size=size, is_empty=True).first()
 
         # Reserve stash
-        stash.is_empty = False
+        stash.is_empty = True
         stash.reserved_until = datetime.now() + timedelta(days=1)
         stash.save()
 

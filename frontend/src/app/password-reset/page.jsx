@@ -32,7 +32,7 @@ export default function PasswordResetPage() {
     setMessage("");
 
     if (!email.trim()) {
-      setError("Proszę wpisać adres e-mail.");
+      setError("Please provide e-mail address.");
       return;
     }
 
@@ -43,14 +43,14 @@ export default function PasswordResetPage() {
       });
 
       // Axios throws on non-2xx responses
-      setMessage(data?.status || "E-mail do resetowania hasła został wysłany!");
+      setMessage(data?.status || "E-mail to reset password was sent!");
       startCooldown();
     } catch (err) {
       const msg =
         err.response?.data?.error ||
         err.response?.data?.detail ||
         err.message ||
-        "Wystąpił nieoczekiwany błąd.";
+        "Unexcepted error.";
       setError(msg);
     } finally {
       setLoading(false);

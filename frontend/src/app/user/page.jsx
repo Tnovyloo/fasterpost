@@ -11,7 +11,7 @@ export default function UserPanel() {
   const [parcels, setParcels] = useState([]);
 
   useEffect(() => {
-    axiosClient.get("/accounts/user/info/").then(res => setUser(res.data));
+    axiosClient.get("/accounts/user/").then(res => setUser(res.data));
     axiosClient.get("/api/packages/user/").then(res => setParcels(res.data));
   }, []);
 
