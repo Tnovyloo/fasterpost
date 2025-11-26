@@ -2,9 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 
-import MapPicker from "@/app/components/MapPicker";
-import WarehouseMap from "@/app/components/WarehouseMap";
-
 import dynamic from "next/dynamic";
 import api from "@/axios/api";
 
@@ -207,6 +204,24 @@ export default function AdminWarehousesPage() {
       w.city.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = !statusFilter || w.status === statusFilter;
     return matchesSearch && matchesStatus;
+  });
+
+  const MapPicker = dynamic(() => import("@/app/components/MapPicker"), {
+      ssr: false,
+      loading: () => (
+       <div className="h-96 rounded-lg border bg-gray-50 flex items-center justify-center">
+         <p className="text-gray-500">Loading map...</p>
+       </div>
+      ),
+  });
+
+  const WarehouseMap = dynamic(() => import("@/app/components/WarehouseMap"), {
+      ssr: false,
+      loading: () => (
+       <div className="h-96 rounded-lg border bg-gray-50 flex items-center justify-center">
+         <p className="text-gray-500">Loading map...</p>
+       </div>
+      ),
   });
 
   return (
