@@ -5,18 +5,27 @@ from rest_framework import serializers
 from rest_framework import serializers
 from postmats.models import Postmat, Stash
 from packages.models import Package, Actualization
+from payments.models import Payment, PricingRule
 from .utils import generate_unlock_code, find_nearest_postmat_with_stash
 
 
 class PackageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source='sender.firstname', read_only=True)
-    receiver_name = serializers.CharField(source='receiver.firstname', read_only=True)
+    sender_name = serializers.CharField(source="sender.firstname", read_only=True)
+    receiver_name = serializers.CharField(source="receiver.firstname", read_only=True)
 
-    origin_postmat_name = serializers.CharField(source='origin_postmat.name', read_only=True)
-    destination_postmat_name = serializers.CharField(source='destination_postmat.name', read_only=True)
-    
-    destination_postmat_lat = serializers.CharField(source='destination_postmat.latitude', read_only=True)
-    destination_postmat_long = serializers.CharField(source='destination_postmat.longitude', read_only=True)
+    origin_postmat_name = serializers.CharField(
+        source="origin_postmat.name", read_only=True
+    )
+    destination_postmat_name = serializers.CharField(
+        source="destination_postmat.name", read_only=True
+    )
+
+    destination_postmat_lat = serializers.CharField(
+        source="destination_postmat.latitude", read_only=True
+    )
+    destination_postmat_long = serializers.CharField(
+        source="destination_postmat.longitude", read_only=True
+    )
 
     class Meta:
         model = Package
@@ -67,12 +76,23 @@ class PackageDetailSerializer(serializers.ModelSerializer):
     actualizations = ActualizationSerializer(many=True, read_only=True)
     size_display = serializers.CharField(source="get_size_display", read_only=True)
 
-    destination_postmat_lat = serializers.CharField(source='destination_postmat.latitude', read_only=True)
-    destination_postmat_long = serializers.CharField(source='destination_postmat.longitude', read_only=True)
+    destination_postmat_lat = serializers.CharField(
+        source="destination_postmat.latitude", read_only=True
+    )
+    destination_postmat_long = serializers.CharField(
+        source="destination_postmat.longitude", read_only=True
+    )
 
     class Meta:
         model = Package
         fields = "__all__"
+
+
+from datetime import datetime, timedelta
+import stripe
+from django.conf import settings
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class SendPackageSerializer(serializers.Serializer):
@@ -97,11 +117,17 @@ class SendPackageSerializer(serializers.Serializer):
         except Postmat.DoesNotExist:
             raise serializers.ValidationError("Destination Postmat does not exist.")
 
+        # Validate weight is positive
+        if data["weight"] <= 0:
+            raise serializers.ValidationError("Weight must be greater than 0.")
+
         return data
 
     def create(self, validated_data):
-        user = self.context["request"].user
+        from .utils import find_nearest_postmat_with_stash, generate_unlock_code
+        from .models import Actualization
 
+        user = self.context["request"].user
         origin_pm = validated_data["origin_postmat"]
         size = validated_data["size"]
 
@@ -128,7 +154,7 @@ class SendPackageSerializer(serializers.Serializer):
 
         unlock_code = generate_unlock_code()
 
-        # 3. Create package
+        # 3. Create package (without payment yet)
         package = Package.objects.create(
             origin_postmat=origin_pm,
             destination_postmat=validated_data["destination_postmat"],
@@ -141,7 +167,45 @@ class SendPackageSerializer(serializers.Serializer):
             route_path=[],
         )
 
-        # 4. First actualization
+        # 4. Calculate pricing
+        pricing = PricingRule.calculate_price(size, validated_data["weight"])
+
+        # 5. Create Stripe Payment Intent
+        try:
+            payment_intent = stripe.PaymentIntent.create(
+                amount=int(pricing["total"] * 100),  # Convert to cents
+                currency="usd",
+                metadata={
+                    "package_id": str(package.id),
+                    "user_id": str(user.id),
+                    "size": size,
+                    "weight": validated_data["weight"],
+                },
+                automatic_payment_methods={"enabled": True},
+            )
+
+            # 6. Create Payment record
+            payment = Payment.objects.create(
+                package=package,
+                user=user,
+                stripe_payment_intent_id=payment_intent.id,
+                stripe_client_secret=payment_intent.client_secret,
+                amount=pricing["total"],
+                base_price=pricing["base_price"],
+                size_surcharge=pricing["size_surcharge"],
+                weight_surcharge=pricing["weight_surcharge"],
+                status=Payment.PaymentStatus.PENDING,
+            )
+
+        except stripe.error.StripeError as e:
+            # Delete package if payment creation fails
+            package.delete()
+            stash.is_empty = True
+            stash.reserved_until = None
+            stash.save()
+            raise serializers.ValidationError(f"Payment error: {str(e)}")
+
+        # 7. Create actualization (package created but not paid)
         Actualization.objects.create(
             package_id=package,
             status=Actualization.PackageStatus.CREATED,
@@ -151,6 +215,37 @@ class SendPackageSerializer(serializers.Serializer):
         )
 
         return package
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    package_id = serializers.UUIDField(source="package.id", read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "package_id",
+            "amount",
+            "currency",
+            "status",
+            "base_price",
+            "size_surcharge",
+            "weight_surcharge",
+            "stripe_client_secret",
+            "created_at",
+            "paid_at",
+        ]
+        read_only_fields = fields
+
+
+class PricingCalculationSerializer(serializers.Serializer):
+    size = serializers.ChoiceField(choices=Package.PackageSize.choices)
+    weight = serializers.IntegerField(min_value=1)
+
+    def validate(self, data):
+        pricing = PricingRule.calculate_price(data["size"], data["weight"])
+        data["pricing"] = pricing
+        return data
 
 
 # Admin page serializers:

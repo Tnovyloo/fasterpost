@@ -97,3 +97,14 @@ services:
       - WATCHPACK_POLLING=true
     ports:
       - "80:3000"
+
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: stripe_cli
+    command: listen --forward-to http://backend:8000/api/packges/payments/webhook/ --api-key ${STRIPE_SECRET_KEY}
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_DEVICE_NAME: docker_stripe_cli
+    depends_on:
+      - web
+
