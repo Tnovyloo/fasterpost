@@ -49,7 +49,7 @@ export default function MapPicker({ position, setPosition, readonly = false }) {
 
       {!readonly && (
         <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-white text-center py-2 text-sm font-medium z-10">
-          Click on the map to set Postmat location
+          Click on the map to set location
         </div>
       )}
     </div>

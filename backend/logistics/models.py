@@ -35,20 +35,19 @@ class Warehouse(models.Model):
             "id": str(other.id),
             "distance": self._calculate_distance_to(other)
         }
-
+    
     def _extract_ids(self):
         """Extract IDs from connections, whether user provided IDs or full dicts."""
         if not self.connections:
             return []
         # if dicts: [{"id": "...", ...}]
         if isinstance(self.connections[0], dict):
-            return [c["id"] for c in self.connections]
+            return [str(c["id"]) for c in self.connections]  # ← Add str() here
         # if raw: ["id1", "id2"]
-        return list(self.connections)
-    
+        return [str(conn_id) for conn_id in self.connections]
+
     @transaction.atomic
     def save(self, *args, **kwargs):
-        # FIRST SAVE (so object has ID)
         super().save(*args, **kwargs)
 
         # Extract IDs user intended
@@ -68,18 +67,27 @@ class Warehouse(models.Model):
             self.connections = new_conns
             super().save(update_fields=["connections"])
 
-        for wid in intended_ids:
-            try:
-                other = Warehouse.objects.get(id=wid)
-            except Warehouse.DoesNotExist:
-                continue
-
+        # Get all warehouses that should have connections
+        all_related_warehouses = Warehouse.objects.exclude(id=self.id)
+        
+        for other in all_related_warehouses:
             other_ids = other._extract_ids()
-
-            # If A → B exists but B → A doesn't → add it
-            if str(self.id) not in other_ids:
-                other_ids.append(str(self.id))
-
+            my_id = str(self.id)
+            
+            # Should this warehouse be connected to me?
+            should_be_connected = str(other.id) in intended_ids
+            is_connected = my_id in other_ids
+            
+            if should_be_connected and not is_connected:
+                # Add connection A → B means add B → A
+                other_ids.append(my_id)
+            elif not should_be_connected and is_connected:
+                # Remove connection: A removed B means B should remove A
+                other_ids = [oid for oid in other_ids if oid != my_id]
+            else:
+                # No change needed
+                continue
+            
             # Recompute their formatted connections list
             updated_other_conns = []
             for oid in other_ids:
@@ -88,8 +96,8 @@ class Warehouse(models.Model):
                 except Warehouse.DoesNotExist:
                     continue
                 updated_other_conns.append(other._make_entry(w))
-
-            # Save updated B
+            
+            # Save updated warehouse
             other.connections = updated_other_conns
             super(Warehouse, other).save(update_fields=["connections"])
 
