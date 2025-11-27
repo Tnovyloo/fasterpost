@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Warehouse
+from .models import Warehouse, Route, RoutePackage, RouteStop
 from django.db import transaction
 
 class WarehouseSimpleSerializer(serializers.ModelSerializer):
@@ -93,3 +93,71 @@ class WarehouseDetailSerializer(serializers.ModelSerializer):
         
         instance.save()
         return instance
+
+
+class RouteStopSerializer(serializers.ModelSerializer):
+    warehouse = WarehouseSimpleSerializer(read_only=True)
+    
+    class Meta:
+        model = RouteStop
+        fields = [
+            'id', 'warehouse', 'order', 'distance_from_previous',
+            'estimated_arrival', 'completed_at'
+        ]
+
+
+class RoutePackageSerializer(serializers.ModelSerializer):
+    package_id = serializers.UUIDField(source='package.id', read_only=True)
+    origin_warehouse = serializers.CharField(
+        source='package.origin_postmat.warehouse.city',
+        read_only=True
+    )
+    destination_warehouse = serializers.CharField(
+        source='package.destination_postmat.warehouse.city',
+        read_only=True
+    )
+    pickup_stop_order = serializers.IntegerField(source='pickup_stop.order', read_only=True)
+    dropoff_stop_order = serializers.IntegerField(source='dropoff_stop.order', read_only=True)
+    
+    class Meta:
+        model = RoutePackage
+        fields = [
+            'id', 'package_id', 'origin_warehouse', 'destination_warehouse',
+            'pickup_stop_order', 'dropoff_stop_order'
+        ]
+
+
+class RouteListSerializer(serializers.ModelSerializer):
+    courier_name = serializers.CharField(source='courier.full_name', read_only=True)
+    stop_count = serializers.SerializerMethodField()
+    package_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Route
+        fields = [
+            'id', 'courier_name', 'scheduled_date', 'status',
+            'total_distance', 'estimated_duration', 'stop_count',
+            'package_count', 'created_at'
+        ]
+    
+    def get_stop_count(self, obj):
+        return obj.stops.count()
+    
+    def get_package_count(self, obj):
+        return obj.route_packages.count()
+
+
+class RouteDetailSerializer(serializers.ModelSerializer):
+    courier_name = serializers.CharField(source='courier.full_name', read_only=True)
+    courier_email = serializers.CharField(source='courier.email', read_only=True)
+    stops = RouteStopSerializer(many=True, read_only=True)
+    packages = RoutePackageSerializer(source='route_packages', many=True, read_only=True)
+    
+    class Meta:
+        model = Route
+        fields = [
+            'id', 'courier_name', 'courier_email', 'scheduled_date',
+            'status', 'total_distance', 'estimated_duration',
+            'started_at', 'completed_at', 'created_at',
+            'stops', 'packages'
+        ]
