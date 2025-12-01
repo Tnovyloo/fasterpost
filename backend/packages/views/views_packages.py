@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
+from django.http import HttpResponse
 from django.db.models import OuterRef, Subquery
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -180,38 +181,72 @@ class StripeWebhookView(APIView):
         payload = request.body
         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
 
+        print(f"[WEBHOOK DEBUG] Received webhook")
+        print(f"[WEBHOOK DEBUG] Signature header: {sig_header}")
+        print(
+            f"[WEBHOOK DEBUG] Webhook secret configured: {bool(settings.STRIPE_WEBHOOK_SECRET)}"
+        )
+        print(
+            f"[WEBHOOK DEBUG] Webhook secret (first 10 chars): {settings.STRIPE_WEBHOOK_SECRET[:10] if settings.STRIPE_WEBHOOK_SECRET else 'NOT SET'}"
+        )
+
         try:
             event = stripe.Webhook.construct_event(
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
-        except ValueError:
+            print(f"[WEBHOOK DEBUG] Event verified successfully: {event['type']}")
+        except ValueError as e:
+            print(f"[WEBHOOK ERROR] Invalid payload: {e}")
             return HttpResponse(status=400)
-        except stripe.error.SignatureVerificationError:
+        except stripe.error.SignatureVerificationError as e:
+            print(f"[WEBHOOK ERROR] Invalid signature: {e}")
+            print(
+                f"[WEBHOOK ERROR] Make sure your STRIPE_WEBHOOK_SECRET matches the CLI output"
+            )
+            return HttpResponse(status=400)
+        except Exception as e:
+            print(f"[WEBHOOK ERROR] Unexpected error: {e}")
             return HttpResponse(status=400)
 
         # Log webhook event
-        WebhookEvent.objects.create(
-            stripe_event_id=event["id"], event_type=event["type"], payload=event
-        )
+        try:
+            WebhookEvent.objects.create(
+                stripe_event_id=event["id"], event_type=event["type"], payload=event
+            )
+            print(f"[WEBHOOK DEBUG] Event logged to database")
+        except Exception as e:
+            print(f"[WEBHOOK ERROR] Failed to log event: {e}")
 
         # Handle the event
-        if event["type"] == "payment_intent.succeeded":
-            self.handle_payment_succeeded(event["data"]["object"])
-        elif event["type"] == "payment_intent.payment_failed":
-            self.handle_payment_failed(event["data"]["object"])
-        elif event["type"] == "payment_intent.canceled":
-            self.handle_payment_canceled(event["data"]["object"])
+        try:
+            if event["type"] == "payment_intent.succeeded":
+                self.handle_payment_succeeded(event["data"]["object"])
+            elif event["type"] == "payment_intent.payment_failed":
+                self.handle_payment_failed(event["data"]["object"])
+            elif event["type"] == "payment_intent.canceled":
+                self.handle_payment_canceled(event["data"]["object"])
+            else:
+                print(f"[WEBHOOK DEBUG] Unhandled event type: {event['type']}")
+        except Exception as e:
+            print(f"[WEBHOOK ERROR] Error handling event: {e}")
+            import traceback
+
+            traceback.print_exc()
 
         return HttpResponse(status=200)
 
     def handle_payment_succeeded(self, payment_intent):
         """Handle successful payment"""
+        print(f"[WEBHOOK] Processing payment_intent.succeeded: {payment_intent['id']}")
         try:
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
+            print(f"[WEBHOOK] Found payment: {payment.id}")
+
             payment.status = Payment.PaymentStatus.SUCCEEDED
             payment.paid_at = timezone.now()
             payment.payment_method = payment_intent.get("payment_method")
             payment.save()
+            print(f"[WEBHOOK] Payment status updated to SUCCEEDED")
 
             # Update package status
             from packages.models import Actualization
@@ -223,13 +258,23 @@ class StripeWebhookView(APIView):
                 courier_id=None,
                 warehouse_id=None,
             )
-
-            print(f"Payment succeeded for package {payment.package.id}")
+            print(f"[WEBHOOK] Actualization created for package {payment.package.id}")
+            print(f"[WEBHOOK] ✓ Payment succeeded for package {payment.package.id}")
         except Payment.DoesNotExist:
-            print(f"Payment not found for intent {payment_intent['id']}")
+            print(
+                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
+            )
+        except Exception as e:
+            print(f"[WEBHOOK ERROR] Error in handle_payment_succeeded: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     def handle_payment_failed(self, payment_intent):
         """Handle failed payment"""
+        print(
+            f"[WEBHOOK] Processing payment_intent.payment_failed: {payment_intent['id']}"
+        )
         try:
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
             payment.status = Payment.PaymentStatus.FAILED
@@ -248,13 +293,22 @@ class StripeWebhookView(APIView):
                 stash.is_empty = True
                 stash.reserved_until = None
                 stash.save()
+                print(f"[WEBHOOK] Stash released for failed payment")
 
-            print(f"Payment failed for package {package.id}")
+            print(f"[WEBHOOK] ✓ Payment marked as failed for package {package.id}")
         except Payment.DoesNotExist:
-            print(f"Payment not found for intent {payment_intent['id']}")
+            print(
+                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
+            )
+        except Exception as e:
+            print(f"[WEBHOOK ERROR] Error in handle_payment_failed: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     def handle_payment_canceled(self, payment_intent):
         """Handle canceled payment"""
+        print(f"[WEBHOOK] Processing payment_intent.canceled: {payment_intent['id']}")
         try:
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
             payment.status = Payment.PaymentStatus.CANCELLED
@@ -270,10 +324,18 @@ class StripeWebhookView(APIView):
                 stash.is_empty = True
                 stash.reserved_until = None
                 stash.save()
+                print(f"[WEBHOOK] Stash released for canceled payment")
 
-            print(f"Payment canceled for package {package.id}")
+            print(f"[WEBHOOK] ✓ Payment marked as canceled for package {package.id}")
         except Payment.DoesNotExist:
-            print(f"Payment not found for intent {payment_intent['id']}")
+            print(
+                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
+            )
+        except Exception as e:
+            print(f"[WEBHOOK ERROR] Error in handle_payment_canceled: {e}")
+            import traceback
+
+            traceback.print_exc()
 
 
 class UserPaymentsView(APIView):
