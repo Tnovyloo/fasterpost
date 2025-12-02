@@ -145,12 +145,13 @@ class SendPackageSerializer(serializers.Serializer):
                 )
 
             origin_pm = alt_pm
-            stash = alt_pm.stashes.filter(size=size, is_empty=True).first()
+            stash = alt_pm.stashes.filter(
+                size=size, is_empty=True, reserved_until__isnull=True
+            ).first()
 
         # Reserve stash
         stash.is_empty = True
         stash.reserved_until = datetime.now() + timedelta(days=1)
-        stash.save()
 
         unlock_code = generate_unlock_code()
 
@@ -166,6 +167,9 @@ class SendPackageSerializer(serializers.Serializer):
             unlock_code=unlock_code,
             route_path=[],
         )
+
+        stash.package = package
+        stash.save()
 
         # 4. Calculate pricing
         pricing = PricingRule.calculate_price(size, validated_data["weight"])
