@@ -1,0 +1,2 @@
+# musze sobie przejsc po wszystkich paczkach o statusie created, i sprawdzic czy istnieje payment intent ktory zosatl oplacony 
+# jesli nie zostal to musze po prostu usunac rezerwacje w przypisanych paczkomatach i stashah 

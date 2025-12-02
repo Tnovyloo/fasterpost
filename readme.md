@@ -8,3 +8,8 @@ https://myaccount.google.com/apppasswords
 
 ## Testy
 ```docker-compose -f test.yml run web sh -c "DJANGO_SETTINGS_MODULE=proj.settings_test python manage.py test"```
+
+
+## Klucz Stripe
+Aby otrzymać klucze stripe nalezy wejść pod link (z wcześniej załozonym kontem)
+https://dashboard.stripe.com/
