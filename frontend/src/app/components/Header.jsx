@@ -100,8 +100,7 @@ export default function Header() {
               <NavLink href="/user/settings">Settings</NavLink>
               {isAdmin && (
                 <>
-                  <NavLink href="/admin/users">Admin: Users</NavLink>
-                  <NavLink href="/admin/packages">Admin: Packages</NavLink>
+                  <NavLink href="/admin">Admin</NavLink>
                 </>
               )}
               <button

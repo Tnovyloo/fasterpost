@@ -1,38 +1,230 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 
 import axiosClient from "@/axios/api";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import PaymentForm from "../components/PaymentForm";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 export default function UserPanel() {
   const [user, setUser] = useState(null);
   const [parcels, setParcels] = useState([]);
+  const [retryingPayment, setRetryingPayment] = useState(null);
+  const [clientSecret, setClientSecret] = useState("");
+  const [bannerMessage, setBannerMessage] = useState("");
+  const [bannerType, setBannerType] = useState(""); // "success" | "error"
 
   useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
     axiosClient.get("/accounts/user/").then(res => setUser(res.data));
     axiosClient.get("/api/packages/user/").then(res => setParcels(res.data));
-  }, []);
+    
+  };
+
+  const handleRetryPayment = async (packageId) => {
+    try {
+      const response = await axiosClient.post(`/api/packages/payments/retry/${packageId}/`);
+      setClientSecret(response.data.payment.client_secret);
+      setRetryingPayment(packageId);
+    } catch (error) {
+      console.error("Failed to retry payment:", error);
+      
+      setBannerMessage("Failed to initialize payment. Please try again.");
+      setBannerType("error");
+
+      loadData();
+      setTimeout(() => setBannerMessage(""), 4000);
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    setRetryingPayment(null);
+    setClientSecret("");
+    loadData(); // Reload parcels to show updated status
+
+    setBannerMessage("Payment successful! Your package has been confirmed.");
+    setBannerType("success");
+  
+    loadData();
+    setTimeout(() => setBannerMessage(""), 4000);
+  };
+
+  const handleCancelRetry = () => {
+    setRetryingPayment(null);
+    setClientSecret("");
+  };
+
+  const getPaymentStatusBadge = (status) => {
+    const statusStyles = {
+      succeeded: "bg-green-100 text-green-800 border-green-300",
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      failed: "bg-red-100 text-red-800 border-red-300",
+      cancelled: "bg-gray-100 text-gray-800 border-gray-300",
+      processing: "bg-blue-100 text-blue-800 border-blue-300",
+    };
+
+    const statusLabels = {
+      succeeded: "✓ Paid",
+      pending: "⏳ Pending Payment",
+      failed: "✗ Payment Failed",
+      cancelled: "Cancelled",
+      processing: "Processing",
+    };
+
+    return (
+      <span className={`px-2 py-1 rounded-lg text-xs font-semibold border ${statusStyles[status] || statusStyles.pending}`}>
+        {statusLabels[status] || status}
+      </span>
+    );
+  };
+
+  const getPackageStatusBadge = (status) => {
+    const statusStyles = {
+      created: "bg-blue-100 text-blue-800",
+      waiting_for_pickup: "bg-purple-100 text-purple-800",
+      in_transit: "bg-yellow-100 text-yellow-800",
+      delivered: "bg-green-100 text-green-800",
+      cancelled: "bg-red-100 text-red-800",
+    };
+
+    return (
+      <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${statusStyles[status] || "bg-gray-100 text-gray-800"}`}>
+        {status?.replace(/_/g, " ").toUpperCase() || "N/A"}
+      </span>
+    );
+  };
+
+  const appearance = {
+    theme: 'stripe',
+    variables: {
+      colorPrimary: '#2563eb',
+    },
+  };
+
+  const options = {
+    clientSecret,
+    appearance,
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <Header />
-      <main className="flex-1 px-6 py-10">
-        <div className="max-w-4xl mx-auto bg-white/80 rounded-2xl shadow p-6">
-          <h1 className="text-2xl font-bold text-blue-800 mb-4">
-            Witaj, {user?.username || "Użytkowniku"} 👋
+      <main className="flex-1 px-6 py-10 pt-24">
+        <div className="max-w-5xl mx-auto bg-white/80 rounded-2xl shadow-lg p-6">
+          <h1 className="text-3xl font-bold text-blue-800 mb-6">
+            Welcome, {user?.username || "User"} 👋
           </h1>
 
-          <h2 className="text-lg font-semibold mb-2 text-gray-700">Twoje przesyłki:</h2>
-          <div className="grid gap-4">
-            {parcels.map((p) => (
-              <div key={p.id} className="p-4 border rounded-xl bg-white/90 shadow-sm">
-                <p className="font-medium text-blue-700">📦 {p.id}</p>
-                <p className="text-sm text-gray-600">Status: {p.latest_status_display || "N/A"}</p>
-              </div>
-            ))}
-          </div>
+          {bannerMessage && (
+            <div
+              className={`mb-4 p-3 rounded-lg text-white font-medium ${
+                bannerType === "success" ? "bg-green-600" : "bg-red-600"
+              }`}
+            >
+              {bannerMessage}
+            </div>
+          )}
+
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">Your packages:</h2>
+          
+          {parcels.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="text-lg">There is no any package yet.</p>
+              <p className="text-sm mt-2">Click 'Send Package' to fill the form of sending package.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {parcels.map((p) => (
+                <div key={p.id} className="p-5 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <p className="font-bold text-lg text-blue-700 mb-1">
+                        📦 {p.receiver_name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {p.origin_postmat_name} → {p.destination_postmat_name}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {getPaymentStatusBadge(p.payment_status)}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                    <div>
+                      <span className="text-gray-500">Size:</span>
+                      <span className="ml-2 font-medium text-gray-800">{p.size}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Weight:</span>
+                      <span className="ml-2 font-medium text-gray-800">{p.weight} kg</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Package Status:</span>
+                      <span className="ml-2">{getPackageStatusBadge(p.latest_status)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 font-bold">Amount:</span>
+                      <span className="ml-2 font-bold text-gray-800">
+                        ${p.payment_amount || "N/A"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {p.unlock_code && p.payment_status === 'succeeded' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm font-semibold text-blue-900">
+                        🔑 Unlock Code: <span className="font-mono text-lg">{p.unlock_code}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Show retry payment button for pending/failed payments */}
+                  {p.can_retry_payment && retryingPayment !== p.id && (
+                    <button
+                      onClick={() => handleRetryPayment(p.id)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                    >
+                      {p.payment_status === 'pending' ? '💳 Complete Payment' : '🔄 Retry Payment'}
+                    </button>
+                  )}
+
+                  {/* Show payment form when retrying */}
+                  {retryingPayment === p.id && clientSecret && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="font-semibold text-gray-800">Complete Payment</h3>
+                        <button
+                          onClick={handleCancelRetry}
+                          className="text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <Elements options={options} stripe={stripePromise}>
+                        <PaymentForm 
+                          onSuccess={handlePaymentSuccess}
+                          packageId={p.id}
+                        />
+                      </Elements>
+                    </div>
+                  )}
+
+                  {/* <p className="text-xs text-gray-400 mt-3">
+                    Created: {new Date(p.created_at).toLocaleString('pl-PL')}
+                  </p> */}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
       <Footer />

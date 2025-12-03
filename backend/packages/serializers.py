@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 from .models import Package, Actualization
 from rest_framework import serializers
-
-from rest_framework import serializers
 from postmats.models import Postmat, Stash
 from packages.models import Package, Actualization
 from payments.models import Payment, PricingRule
@@ -33,32 +31,86 @@ class PackageSerializer(serializers.ModelSerializer):
 
 
 class PackageListSerializer(serializers.ModelSerializer):
-    latest_status = serializers.CharField(read_only=True)
     origin_postmat_name = serializers.CharField(
         source="origin_postmat.name", read_only=True
     )
     destination_postmat_name = serializers.CharField(
         source="destination_postmat.name", read_only=True
     )
-    latest_status_display = serializers.SerializerMethodField()
+    latest_status = serializers.CharField(read_only=True)
 
-    def get_latest_status_display(self, obj):
-        value = obj.latest_status
-        if not value:
-            return None
-        return Actualization.PackageStatus(value).label
+    # Payment information
+    payment_status = serializers.SerializerMethodField()
+    payment_amount = serializers.SerializerMethodField()
+    payment_client_secret = serializers.SerializerMethodField()
+    can_retry_payment = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
         fields = [
             "id",
-            "latest_status",
-            "latest_status_display",
-            "origin_postmat_name",
-            "destination_postmat_name",
+            "receiver_name",
+            "receiver_phone",
             "size",
             "weight",
+            "origin_postmat_name",
+            "destination_postmat_name",
+            "latest_status",
+            "unlock_code",
+            # "created_at",
+            # Payment fields
+            "payment_status",
+            "payment_amount",
+            "payment_client_secret",
+            "can_retry_payment",
         ]
+
+    def get_payment_status(self, obj):
+        """Get payment status for this package"""
+        try:
+            payment = Payment.objects.get(package=obj)
+            return payment.status
+        except Payment.DoesNotExist:
+            return None
+
+    def get_payment_amount(self, obj):
+        """Get payment amount for this package"""
+        try:
+            payment = Payment.objects.get(package=obj)
+            return str(payment.amount)
+        except Payment.DoesNotExist:
+            return None
+
+    def get_payment_client_secret(self, obj):
+        """Get client secret for pending payments"""
+        try:
+            payment = Payment.objects.get(package=obj)
+            # Only return client secret if payment is pending or failed
+            if payment.status in [
+                Payment.PaymentStatus.PENDING,
+                Payment.PaymentStatus.FAILED,
+            ]:
+                return payment.stripe_client_secret
+            return None
+        except Payment.DoesNotExist:
+            return None
+
+    def get_can_retry_payment(self, obj):
+        """Check if user can retry payment"""
+        try:
+            payment = Payment.objects.get(package=obj)
+            # Allow retry for pending, failed, or cancelled payments
+            return payment.status in [
+                Payment.PaymentStatus.PENDING,
+                Payment.PaymentStatus.FAILED,
+                Payment.PaymentStatus.CANCELLED,
+            ]
+        except Payment.DoesNotExist:
+            return False
+
+    def get_latest_status(self, obj):
+        latest = obj.actualizations.order_by("-created_at").first()
+        return latest.status if latest else "created"
 
 
 class ActualizationSerializer(serializers.ModelSerializer):
@@ -341,35 +393,3 @@ class PackageAdminSerializer(serializers.ModelSerializer):
         if latest:
             return ActualizationSerializer(latest).data
         return None
-
-
-class PackageListSerializer(serializers.ModelSerializer):
-    """Lighter serializer for list view"""
-
-    origin_postmat_name = serializers.CharField(
-        source="origin_postmat.name", read_only=True
-    )
-    destination_postmat_name = serializers.CharField(
-        source="destination_postmat.name", read_only=True
-    )
-    sender_email = serializers.CharField(source="sender.email", read_only=True)
-    latest_status = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Package
-        fields = [
-            "id",
-            "pickup_code",
-            "origin_postmat_name",
-            "destination_postmat_name",
-            "sender_email",
-            "receiver_name",
-            "receiver_phone",
-            "size",
-            "weight",
-            "latest_status",
-        ]
-
-    def get_latest_status(self, obj):
-        latest = obj.actualizations.order_by("-created_at").first()
-        return latest.status if latest else "created"
