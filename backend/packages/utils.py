@@ -26,7 +26,9 @@ def find_nearest_postmat_with_stash(origin_pm, size):
     best_dist = None
 
     for pm in postmats:
-        has_stash = pm.stashes.filter(size=size, is_empty=True).exists()
+        has_stash = pm.stashes.filter(
+            size=size, is_empty=True, reserved_until__isnull=True
+        ).exists()
         if not has_stash:
             continue
 

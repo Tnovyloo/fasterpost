@@ -18,12 +18,11 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "corsheaders",
     # "rest_framework.authtoken",  # For Token authorization.
-    
     "accounts",
     "postmats",
     "logistics",
     "packages",
-
+    "payments",
     "drf_spectacular",
 ]
 
@@ -149,6 +148,13 @@ EMAIL_SEND_ASYNC = os.environ.get("EMAIL_SEND_ASYNC", "False").lower() in (
     "yes",
 )  # <--- This ENV variable decides on ASYNC sending from Celery.
 
+# STRIPE Setup
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "sk_test_your_key_here")
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLIC_KEY", "pk_test_your_key_here")
+STRIPE_WEBHOOK_SECRET = os.environ.get(
+    "STRIPE_WEBHOOK_SECRET", "whsec_your_webhook_secret"
+)
+
 ########################################
 # This is printing .env variables and project dependencies
 # ANSI color codes
@@ -225,3 +231,8 @@ if not LOGS_OFF:
     print_env_var("POSTGRES_PASSWORD")
     print_env_var("POSTGRES_HOST")
     print_env_var("POSTGRES_PORT")
+
+    print(f"\n{CYAN}Stripe Setup{RESET}")
+    print_settings_var("STRIPE_SECRET_KEY", STRIPE_SECRET_KEY)
+    print_settings_var("STRIPE_PUBLIC_KEY", STRIPE_PUBLISHABLE_KEY)
+    print_settings_var("STRIPE_WEBHOOK_SECRET", STRIPE_WEBHOOK_SECRET)

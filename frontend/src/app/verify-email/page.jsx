@@ -1,157 +1,75 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Header from "../components/Header";
 import api from "@/axios/api";
 
-export default function TOTPPage() {
-  const [loading, setLoading] = useState(false);
-  const [qrBase64, setQrBase64] = useState(null);
-  const [secret, setSecret] = useState(null);
-  const [status, setStatus] = useState(null);
-  const [error, setError] = useState(null);
-  const [code, setCode] = useState("");
-  const [isEnabled, setIsEnabled] = useState(false);
+export default function VerifyEmailPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const endpoints = {
-    enable: "/user/totp/enable",
-    verify: "/user/totp/verify",
-    disable: "/user/totp/disable",
-  };
+  const uid = searchParams.get("uid");
+  const token = searchParams.get("token");
 
-  async function send(path, method = "POST", body = null) {
-    setError(null);
-    setStatus(null);
-    setLoading(true);
-    try {
-      const res = await api.request({
-        url: path,
-        method,
-        data: body || undefined,
-        withCredentials: true,
-      });
-      return res.data;
-    } catch (e) {
-      const msg =
-        e.response?.data?.error ||
-        e.response?.data?.detail ||
-        (typeof e.response?.data === "string"
-          ? e.response.data
-          : JSON.stringify(e.response?.data)) ||
-        e.message;
-      setError(msg);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-  async function handleEnable() {
-    setQrBase64(null);
-    setSecret(null);
-    const data = await send(endpoints.enable, "POST", {});
-    if (!data) return;
-    setQrBase64(data.qr_image_base64 || null);
-    setSecret(data.secret || null);
-    setIsEnabled(false);
-    setStatus("Scan the QR or copy the secret, then verify the code.");
-  }
+  useEffect(() => {
+    const verifyEmail = async () => {
+      if (!uid || !token) {
+        setError("Nieprawidłowy link weryfikacyjny.");
+        setLoading(false);
+        return;
+      }
 
-  async function handleVerify() {
-    if (!code) return setError("Enter the 6‑digit code.");
-    const data = await send(endpoints.verify, "POST", { code });
-    if (!data) return;
-    if (data.status) {
-      setStatus(data.status);
-      setIsEnabled(true);
-      setQrBase64(null);
-      setSecret(null);
-      setCode("");
-    }
-  }
+      try {
+        const res = await api.post(
+          `/accounts/user/verify/${uid}/${token}`,
+          { uid, verify_token: token },
+          { withCredentials: true }
+        );
+        setMessage(res.data.status || "Adres e-mail został zweryfikowany!");
+        localStorage.setItem("isLoggedIn", "true");
+      } catch (err) {
+        setError(err.response?.data?.detail || err.message || "Błąd weryfikacji.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  async function handleDisable() {
-    const data = await send(endpoints.disable, "POST", {});
-    if (!data) return;
-    setStatus(data.status || "TOTP disabled");
-    setIsEnabled(false);
-  }
-
-  function copySecret() {
-    if (!secret) return;
-    navigator.clipboard.writeText(secret).then(() => setStatus("Copied!"));
-  }
+    verifyEmail();
+  }, [uid, token]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-6 pt-24">
-      <main className="max-w-3xl mx-auto w-full space-y-8">
-        <h1 className="text-3xl font-bold text-blue-900 tracking-tight">🔐 Two‑Factor Authentication</h1>
+    <div>
+      <Header />
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-amber-50 p-6">
+        <div className="w-full max-w-md animate-fade-in">
+          <div className="backdrop-blur-xl bg-white/70 border border-blue-100/50 rounded-2xl shadow-2xl p-8 text-center">
+            <h1 className="text-3xl font-semibold text-blue-700 mb-6">
+              Weryfikacja e-mail ✨
+            </h1>
 
-        {status && <div className="p-3 rounded-xl bg-green-100 text-green-700 border border-green-300">{status}</div>}
-        {error && <div className="p-3 rounded-xl bg-red-100 text-red-700 border border-red-300">{error}</div>}
-
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* LEFT */}
-          <div className="bg-white shadow p-6 rounded-2xl border space-y-5">
-            <h2 className="text-xl font-semibold text-black">Provision TOTP</h2>
-            <p className="text-sm text-gray-700">Generate a QR code and secret for your authenticator app.</p>
-
-            <button
-              onClick={handleEnable}
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl font-semibold shadow"
-            >
-              {loading ? "Working..." : "Generate QR & Secret"}
-            </button>
-
-            {qrBase64 && (
-              <div className="space-y-4 mt-4">
-                <img
-                  src={`data:image/png;base64,${qrBase64}`}
-                  alt="QR"
-                  className="w-40 h-40 border p-2 rounded-xl bg-white mx-auto"
-                />
-
-                {secret && (
-                  <div className="flex items-center justify-between bg-gray-50 p-3 border rounded-xl">
-                    <code className="text-black">{secret}</code>
-                    <button onClick={copySecret} className="px-3 py-1 rounded-xl border">Copy</button>
-                  </div>
-                )}
+            {loading ? (
+              <div className="flex flex-col items-center gap-4">
+                <span className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                <span className="text-gray-700">Sprawdzanie linku...</span>
+              </div>
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="flex flex-col gap-4 items-center">
+                <p className="text-green-600 text-base">{message}</p>
+                <button
+                  onClick={() => router.push("/login")}
+                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition shadow-md hover:shadow-lg"
+                >
+                  Przejdź do logowania
+                </button>
               </div>
             )}
-          </div>
-
-          {/* RIGHT */}
-          <div className="bg-white shadow p-6 rounded-2xl border space-y-5">
-            <h2 className="text-xl font-semibold text-black">Verify Code</h2>
-            <p className="text-sm text-gray-700">Enter the 6‑digit code from your authenticator app.</p>
-
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
-              placeholder="123456"
-              className="w-full border rounded-xl p-3 text-black"
-            />
-
-            <button
-              onClick={handleVerify}
-              disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-xl font-semibold shadow"
-            >
-              Verify
-            </button>
-
-            <div className="pt-4 border-t">
-              <h2 className="text-xl font-semibold text-black mb-2">Disable TOTP</h2>
-              <button
-                onClick={handleDisable}
-                disabled={loading}
-                className="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-xl font-semibold shadow"
-              >
-                Disable
-              </button>
-              <p className="text-sm text-gray-600 mt-2">Status: {isEnabled ? "Enabled" : "Not enabled"}</p>
-            </div>
           </div>
         </div>
       </main>
