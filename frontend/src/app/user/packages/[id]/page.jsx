@@ -87,7 +87,7 @@ export default function PackageDetailsPage() {
           <div className="text-center">
             <p className="text-xl text-gray-600 mb-4">Package not found</p>
             <button
-              onClick={() => router.push("/user-panel")}
+              onClick={() => router.push("/user")}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
             >
               Back to Packages
@@ -106,7 +106,7 @@ export default function PackageDetailsPage() {
         <div className="max-w-6xl mx-auto">
           {/* Back Button */}
           <button
-            onClick={() => router.push("/user-panel")}
+            onClick={() => router.push("/user")}
             className="mb-6 text-blue-600 hover:text-blue-800 flex items-center gap-2"
           >
             ← Back to Packages
