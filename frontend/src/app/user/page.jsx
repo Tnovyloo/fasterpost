@@ -122,7 +122,7 @@ export default function UserPanel() {
   };
 
   const handleOpenStash = async (packageId) => {
-    setLoadingPackageId(packageId); // Start loading
+    setLoadingPackageId(packageId);
     
     try {
       const response = await axiosClient.post(`/api/packages/open-stash/${packageId}/`);
@@ -130,19 +130,29 @@ export default function UserPanel() {
       setBannerMessage(response.data.message || "Package placed in stash successfully!");
       setBannerType("success");
       
-      await loadData(); // Reload to show updated status
+      await loadData();
       setTimeout(() => setBannerMessage(""), 12000);
     } catch (error) {
       console.error("Failed to open stash:", error);
       
-      setBannerMessage(
-        error.response?.data?.error || "Failed to open stash. Please try again."
-      );
+      // Handle specific error messages
+      let errorMessage = "Failed to open stash. Please try again.";
+      
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+        
+        // Add context for payment errors
+        if (error.response.data.payment_status) {
+          errorMessage += ` (Payment status: ${error.response.data.payment_status})`;
+        }
+      }
+      
+      setBannerMessage(errorMessage);
       setBannerType("error");
       
       setTimeout(() => setBannerMessage(""), 12000);
     } finally {
-      setLoadingPackageId(null); // Stop loading
+      setLoadingPackageId(null);
     }
   };
 

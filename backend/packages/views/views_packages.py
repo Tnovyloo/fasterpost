@@ -473,6 +473,22 @@ class OpenStashView(APIView):
             # Get the package
             package = Package.objects.get(id=package_id, sender=request.user)
 
+            # Check if payment exists and was successful
+            if not hasattr(package, "payment"):
+                return Response(
+                    {"error": "No payment found for this package"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if package.payment.status != Payment.PaymentStatus.SUCCEEDED:
+                return Response(
+                    {
+                        "error": "Payment must be completed before opening stash",
+                        "payment_status": package.payment.status,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Check if package has a stash assigned
             if not hasattr(package, "stash") or not package.stash.exists():
                 return Response(
