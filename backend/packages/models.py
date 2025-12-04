@@ -1,7 +1,7 @@
 from django.db import models
 import uuid
 
-from logistics.models import Warehouse, Route
+from logistics.models import Route
 from accounts.models import User
 
 
@@ -40,13 +40,6 @@ class Actualization(models.Model):
         PICKED_UP = "picked_up", "Picked Up"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    package_id = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='actualizations')
-    status = models.CharField(max_length=20, choices=PackageStatus.choices, default='created')
-    courier_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
-    warehouse_id = models.ForeignKey('logistics.Warehouse', on_delete=models.CASCADE, related_name='actualizations', null=True, blank=True)
-    route_remaining = models.JSONField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    routes = models.ManyToManyField('logistics.Route', related_name='actualizations', blank=True)
     package_id = models.ForeignKey(
         Package, on_delete=models.CASCADE, related_name="actualizations"
     )
@@ -61,7 +54,32 @@ class Actualization(models.Model):
         blank=True,
     )
     warehouse_id = models.ForeignKey(
-        Warehouse,
+        "logistics.Warehouse",
+        on_delete=models.CASCADE,
+        related_name="actualizations",
+        null=True,
+        blank=True,
+    )
+    route_remaining = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    routes = models.ManyToManyField(
+        "logistics.Route", related_name="actualizations", blank=True
+    )
+    package_id = models.ForeignKey(
+        Package, on_delete=models.CASCADE, related_name="actualizations"
+    )
+    status = models.CharField(
+        max_length=20, choices=PackageStatus.choices, default="created"
+    )
+    courier_id = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="actualizations",
+        null=True,
+        blank=True,
+    )
+    warehouse_id = models.ForeignKey(
+        "logistics.Warehouse",
         on_delete=models.CASCADE,
         related_name="actualizations",
         null=True,
