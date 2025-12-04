@@ -4,7 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from logistics.models import Warehouse
-from logistics.serializers import WarehouseListSerializer, WarehouseDetailSerializer, WarehouseSimpleSerializer
+from logistics.serializers.admin_serializers import WarehouseListSerializer, WarehouseDetailSerializer
+from logistics.serializers.serializers import WarehouseSimpleSerializer
 from accounts.permissions import IsAdmin
 from postmats.pagination import StandardPagination
 

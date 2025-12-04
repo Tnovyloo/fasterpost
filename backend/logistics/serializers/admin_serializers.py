@@ -1,11 +1,7 @@
 from rest_framework import serializers
-from .models import Warehouse, Route, RoutePackage, RouteStop
+from logistics.models import Warehouse, Route, RoutePackage, RouteStop
+from .serializers import WarehouseSimpleSerializer
 from django.db import transaction
-
-class WarehouseSimpleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Warehouse
-        fields = ["id", "city"]
 
 class WarehouseListSerializer(serializers.ModelSerializer):
     connections = serializers.SerializerMethodField()

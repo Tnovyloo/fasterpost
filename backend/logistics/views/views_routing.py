@@ -8,7 +8,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
 from logistics.models import Route, RouteStop
-from logistics.serializers import RouteListSerializer, RouteDetailSerializer
+from logistics.serializers.admin_serializers import RouteListSerializer, RouteDetailSerializer
 from logistics.services.routing_service import RoutingService
 from accounts.permissions import IsAdmin
 
