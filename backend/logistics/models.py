@@ -4,7 +4,7 @@ from django.utils import timezone
 from proj import utils
 import uuid
 
-from packages.models import Package
+from packages.models import Package, Actualization
 
 class Warehouse(models.Model):
     # Enum for warehouse status
@@ -137,7 +137,6 @@ class Route(models.Model):
     
     def start_route(self):
         """Start the route and create in_transit actualizations"""
-        from logistics.models import Actualization
         
         self.status = 'in_progress'
         self.started_at = timezone.now()
@@ -187,7 +186,6 @@ class RouteStop(models.Model):
     
     def complete_stop(self):
         """Mark stop as completed and update package actualizations"""
-        from logistics.models import Actualization
         
         self.completed_at = timezone.now()
         self.save()
