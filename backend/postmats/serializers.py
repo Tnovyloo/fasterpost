@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Postmat, Stash
 from logistics.models import Warehouse
-from logistics.serializers import WarehouseSimpleSerializer
+from logistics.serializers.serializers import WarehouseSimpleSerializer
 
 
 class PostmatSerializer(serializers.ModelSerializer):

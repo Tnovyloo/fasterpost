@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.response import Response
 
 from logistics.models import Warehouse
-from logistics.serializers import WarehouseSimpleSerializer
+from logistics.serializers.serializers import WarehouseSimpleSerializer
 from rest_framework.views import APIView
 
 class WarehouseSimpleView(APIView):

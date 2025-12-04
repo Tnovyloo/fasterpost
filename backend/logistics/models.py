@@ -1,6 +1,10 @@
 from django.db import models, transaction
+from django.conf import settings
+from django.utils import timezone
 from proj import utils
 import uuid
+
+from packages.models import Package, Actualization
 
 class Warehouse(models.Model):
     # Enum for warehouse status
@@ -102,26 +106,136 @@ class Warehouse(models.Model):
             super(Warehouse, other).save(update_fields=["connections"])
 
 class Route(models.Model):
-    # Enum for route status
-    class RouteStatus(models.TextChoices):
-        OPERATIONAL = 'operational', 'Operational'
-        DELAYED = 'delayed', 'Delayed'
-        CLOSED = 'closed', 'Closed'
-
-    # Model fields
+    """Represents a planned warehouse courier route"""
+    STATUS_CHOICES = [
+        ('planned', 'Planned'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    origin = models.ForeignKey(Warehouse, related_name='route_origins', on_delete=models.CASCADE)
-    destination = models.ForeignKey(Warehouse, related_name='route_destinations', on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=RouteStatus.choices, default='operational')
-
-    # Dev string representation
+    courier = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='warehouse_routes',
+        limit_choices_to={'role': 'warehouse'}
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    scheduled_date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
+    total_distance = models.FloatField(help_text="Total route distance in km")
+    estimated_duration = models.IntegerField(null=True, blank=True, help_text="Minutes")
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
     def __str__(self):
-        return f"Route {self.id} from {self.origin.city} to {self.destination.city} ({self.status})"
+        return f"Route {self.id} - {self.courier.full_name()} ({self.scheduled_date})"
+    
+    def start_route(self):
+        """Start the route and create in_transit actualizations"""
+        
+        self.status = 'in_progress'
+        self.started_at = timezone.now()
+        self.save()
+        
+        # Get all packages on this route
+        route_packages = self.route_packages.select_related('package')
+        
+        for rp in route_packages:
+            Actualization.objects.create(
+                package_id=rp.package,
+                status='in_transit',
+                courier_id=self.courier,
+                warehouse_id=None,
+                route_remaining=self._build_route_remaining(rp.package)
+            )
+    
+    def complete_route(self):
+        """Mark route as completed"""
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.save()
+    
+    def _build_route_remaining(self, package):
+        """Build list of remaining stops for a package"""
+        stops = list(self.stops.order_by('order').values(
+            'warehouse__city', 'order', 'warehouse_id'
+        ))
+        return stops
+    
+class RouteStop(models.Model):
+    """Individual warehouse stop in a route"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='stops')
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
+    order = models.IntegerField(help_text="Stop sequence (0 = first)")
+    distance_from_previous = models.FloatField(default=0, help_text="km from previous stop")
+    estimated_arrival = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['route', 'order']
+        unique_together = ['route', 'order']
+    
+    def __str__(self):
+        return f"Stop {self.order}: {self.warehouse.city}"
+    
+    def complete_stop(self):
+        """Mark stop as completed and update package actualizations"""
+        
+        self.completed_at = timezone.now()
+        self.save()
+        
+        # Handle pickups
+        pickup_packages = RoutePackage.objects.filter(
+            route=self.route,
+            pickup_stop=self
+        ).select_related('package')
+        
+        for rp in pickup_packages:
+            Actualization.objects.create(
+                package_id=rp.package,
+                status='in_transit',
+                courier_id=self.route.courier,
+                warehouse_id=self.warehouse
+            )
+        
+        # Handle dropoffs
+        dropoff_packages = RoutePackage.objects.filter(
+            route=self.route,
+            dropoff_stop=self
+        ).select_related('package')
+        
+        for rp in dropoff_packages:
+            Actualization.objects.create(
+                package_id=rp.package,
+                status='in_warehouse',
+                courier_id=self.route.courier,
+                warehouse_id=self.warehouse
+            )
 
-    def save(self, *args, **kwargs):
-        # Ensure origin and destination are not the same
-        if self.origin == self.destination:
-            raise ValueError("Origin and destination warehouses must be different.")
-
-        super().save(*args, **kwargs)
-
+class RoutePackage(models.Model):
+    """Links packages to routes with pickup/dropoff stops"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='route_packages')
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='route_assignments')
+    pickup_stop = models.ForeignKey(
+        RouteStop,
+        on_delete=models.CASCADE,
+        related_name='pickups'
+    )
+    dropoff_stop = models.ForeignKey(
+        RouteStop,
+        on_delete=models.CASCADE,
+        related_name='dropoffs'
+    )
+    
+    class Meta:
+        unique_together = ['route', 'package']
+    
+    def __str__(self):
+        return f"Package {self.package.id} on Route {self.route.id}"

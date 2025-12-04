@@ -1,7 +1,6 @@
 from django.db import models
 import uuid
 
-from logistics.models import Warehouse, Route
 from accounts.models import User
 
 
@@ -54,7 +53,7 @@ class Actualization(models.Model):
         blank=True,
     )
     warehouse_id = models.ForeignKey(
-        Warehouse,
+        "logistics.Warehouse",
         on_delete=models.CASCADE,
         related_name="actualizations",
         null=True,
@@ -62,7 +61,34 @@ class Actualization(models.Model):
     )
     route_remaining = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    routes = models.ManyToManyField(Route, related_name="actualizations", blank=True)
+    routes = models.ManyToManyField(
+        "logistics.Route", related_name="actualizations", blank=True
+    )
+    package_id = models.ForeignKey(
+        Package, on_delete=models.CASCADE, related_name="actualizations"
+    )
+    status = models.CharField(
+        max_length=20, choices=PackageStatus.choices, default="created"
+    )
+    courier_id = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="actualizations",
+        null=True,
+        blank=True,
+    )
+    warehouse_id = models.ForeignKey(
+        "logistics.Warehouse",
+        on_delete=models.CASCADE,
+        related_name="actualizations",
+        null=True,
+        blank=True,
+    )
+    route_remaining = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    routes = models.ManyToManyField(
+        "logistics.Route", related_name="actualizations", blank=True
+    )
 
     class Meta:
         ordering = ["-created_at"]
