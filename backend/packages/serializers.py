@@ -262,13 +262,13 @@ class SendPackageSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"Payment error: {str(e)}")
 
         # 7. Create actualization (package created but not paid)
-        Actualization.objects.create(
-            package_id=package,
-            status=Actualization.PackageStatus.CREATED,
-            route_remaining=None,
-            courier_id=None,
-            warehouse_id=None,
-        )
+        # Actualization.objects.create(
+        #     package_id=package,
+        #     status=Actualization.PackageStatus.CREATED,
+        #     route_remaining=None,
+        #     courier_id=None,
+        #     warehouse_id=None,
+        # )
 
         return package
 
@@ -393,3 +393,88 @@ class PackageAdminSerializer(serializers.ModelSerializer):
         if latest:
             return ActualizationSerializer(latest).data
         return None
+
+
+# For detail views of packages in user panel
+
+
+class ActualizationDetailSerializer(serializers.ModelSerializer):
+    courier_name = serializers.SerializerMethodField()
+    warehouse_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Actualization
+        fields = [
+            "id",
+            "status",
+            "created_at",
+            "courier_name",
+            "warehouse_name",
+            "route_remaining",
+        ]
+
+    def get_courier_name(self, obj):
+        return obj.courier_id.username if obj.courier_id else None
+
+    def get_warehouse_name(self, obj):
+        return obj.warehouse_id.name if obj.warehouse_id else None
+
+
+class PaymentDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "amount",
+            "currency",
+            "status",
+            "base_price",
+            "size_surcharge",
+            "weight_surcharge",
+            "created_at",
+            "paid_at",
+            "payment_method",
+            "failure_reason",
+        ]
+
+
+class SenderPackageDetailSerializer(serializers.ModelSerializer):
+    origin_postmat_name = serializers.CharField(
+        source="origin_postmat.name", read_only=True
+    )
+    origin_postmat_address = serializers.CharField(
+        source="origin_postmat.address", read_only=True
+    )
+    destination_postmat_name = serializers.CharField(
+        source="destination_postmat.name", read_only=True
+    )
+    destination_postmat_address = serializers.CharField(
+        source="destination_postmat.address", read_only=True
+    )
+    sender_name = serializers.CharField(source="sender.username", read_only=True)
+    actualizations = ActualizationDetailSerializer(many=True, read_only=True)
+    payment = PaymentDetailSerializer(read_only=True)
+    latest_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Package
+        fields = [
+            "id",
+            "origin_postmat_name",
+            "origin_postmat_address",
+            "destination_postmat_name",
+            "destination_postmat_address",
+            "sender_name",
+            "receiver_name",
+            "receiver_phone",
+            "size",
+            "weight",
+            "route_path",
+            "actualizations",
+            "payment",
+            "latest_status",
+        ]
+
+    def get_latest_status(self, obj):
+        latest = obj.actualizations.first()
+        return latest.status if latest else "created"

@@ -8,12 +8,16 @@ from packages.views.views_packages import (
     UserPaymentsView,
     StripeWebhookView,
     RetryPaymentView,
+    OpenStashView,
+    PackageDetailView
 )
 
 urlpatterns = [
     path("user/", UserPackagesView.as_view()),
     path("user/<uuid:id>", ParcelDetailView.as_view()),
     path("send-package/", SendPackageView.as_view(), name="send-package"),
+    path("open-stash/<uuid:package_id>/", OpenStashView.as_view(), name="open-stash"),
+    path("details/<uuid:package_id>/", PackageDetailView.as_view(), name="package-detail"),
     # # Pricing calculator
     path(
         "payments/calculate-price/",

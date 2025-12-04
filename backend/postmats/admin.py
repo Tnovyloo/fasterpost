@@ -42,7 +42,15 @@ class StashAdmin(admin.ModelAdmin):
         updated = queryset.update(reserved_until=None)
         self.message_user(request, f"Removed {updated} reservations.", messages.SUCCESS)
 
-    actions = ("action_remove_reservation",)
+    @admin.action(description="Empty stashes")
+    def action_empty_stashes(self, request, queryset):
+        updated = queryset.update(is_empty=True)
+        self.message_user(request, f"Changed {updated} stashes.", messages.SUCCESS)
+
+    actions = (
+        "action_remove_reservation",
+        "action_empty_stashes",
+    )
 
 
 router = DefaultRouter()

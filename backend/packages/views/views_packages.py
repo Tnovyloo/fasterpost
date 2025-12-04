@@ -27,7 +27,7 @@ from packages.serializers import (
     PaymentSerializer,
     PricingCalculationSerializer,
     PackageSerializer,
-    PackageDetailSerializer,
+    SenderPackageDetailSerializer,
     PackageListSerializer,
 )
 
@@ -249,16 +249,16 @@ class StripeWebhookView(APIView):
             print(f"[WEBHOOK] Payment status updated to SUCCEEDED")
 
             # Update package status
-            from packages.models import Actualization
+            # from packages.models import Actualization
 
-            Actualization.objects.create(
-                package_id=payment.package,
-                status=Actualization.PackageStatus.WAITING_FOR_PICKUP,
-                route_remaining=None,
-                courier_id=None,
-                warehouse_id=None,
-            )
-            print(f"[WEBHOOK] Actualization created for package {payment.package.id}")
+            # Actualization.objects.create(
+            #     package_id=payment.package,
+            #     status=Actualization.PackageStatus.WAITING_FOR_PICKUP,
+            #     route_remaining=None,
+            #     courier_id=None,
+            #     warehouse_id=None,
+            # )
+            # print(f"[WEBHOOK] Actualization created for package {payment.package.id}")
             print(f"[WEBHOOK] ✓ Payment succeeded for package {payment.package.id}")
         except Payment.DoesNotExist:
             print(
@@ -461,4 +461,83 @@ class RetryPaymentView(APIView):
             return Response(
                 {"error": "An unexpected error occurred"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class OpenStashView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, package_id):
+        try:
+            # Get the package
+            package = Package.objects.get(id=package_id, sender=request.user)
+
+            # Check if package has a stash assigned
+            if not hasattr(package, "stash") or not package.stash.exists():
+                return Response(
+                    {"error": "No stash assigned to this package"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            stash = package.stash.first()
+
+            # Update stash
+            stash.reserved_until = None
+            stash.is_empty = False
+            stash.save()
+
+            # Create actualization
+            Actualization.objects.create(
+                package_id=package,
+                status=Actualization.PackageStatus.PLACED_IN_STASH,
+                created_at=timezone.now(),
+            )
+
+            return Response(
+                {
+                    "message": "Package placed in stash successfully",
+                    "stash_id": str(stash.id),
+                    "postmat": stash.postmat.name,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Package.DoesNotExist:
+            return Response(
+                {"error": "Package not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PackageDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, package_id):
+        try:
+            # Get package and ensure user owns it
+            package = (
+                Package.objects.select_related(
+                    "origin_postmat", "destination_postmat", "sender", "payment"
+                )
+                .prefetch_related(
+                    "actualizations__courier_id", "actualizations__warehouse_id"
+                )
+                .get(id=package_id, sender=request.user)
+            )
+
+            serializer = SenderPackageDetailSerializer(package)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Package.DoesNotExist:
+            return Response(
+                {"error": "Package not found or you don't have permission to view it"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
