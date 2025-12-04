@@ -110,6 +110,14 @@ class User(AbstractBaseUser):
 
     objects = MyAccountManager()
 
+    warehouse = models.ForeignKey(
+        "logistics.Warehouse",
+        default=None,
+        on_delete=models.DO_NOTHING,
+        blank=True,
+        null=True,
+    )
+
     def __str__(self):
         return self.email
 
