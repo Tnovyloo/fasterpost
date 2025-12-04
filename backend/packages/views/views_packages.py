@@ -348,3 +348,117 @@ class UserPaymentsView(APIView):
         payments = Payment.objects.filter(user=request.user)
         serializer = PaymentSerializer(payments, many=True)
         return Response(serializer.data)
+
+
+class RetryPaymentView(APIView):
+    """
+    POST /api/payments/retry/<package_id>/
+    Create a new payment intent for a failed/pending payment
+    """
+
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, package_id):
+        try:
+            # Get package and verify ownership
+            package = Package.objects.get(id=package_id, sender=request.user)
+
+            # Get existing payment
+            payment = Payment.objects.get(package=package)
+
+            # Check if payment can be retried
+            if payment.status not in [
+                Payment.PaymentStatus.PENDING,
+                Payment.PaymentStatus.FAILED,
+                Payment.PaymentStatus.CANCELLED,
+            ]:
+                return Response(
+                    {
+                        "error": f"Payment cannot be retried. Current status: {payment.status}"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Create new payment intent if needed
+            if (
+                not payment.stripe_payment_intent_id
+                or payment.status == Payment.PaymentStatus.FAILED
+            ):
+                try:
+                    # Cancel old payment intent if it exists
+                    if payment.stripe_payment_intent_id:
+                        try:
+                            stripe.PaymentIntent.cancel(
+                                payment.stripe_payment_intent_id
+                            )
+                            print(
+                                f"[RETRY] Cancelled old payment intent: {payment.stripe_payment_intent_id}"
+                            )
+                        except Exception as e:
+                            print(f"[RETRY] Could not cancel old intent: {e}")
+                            pass  # If cancellation fails, continue anyway
+
+                    # Create new payment intent
+                    payment_intent = stripe.PaymentIntent.create(
+                        amount=int(payment.amount * 100),  # Convert to cents
+                        currency="usd",
+                        metadata={
+                            "package_id": str(package.id),
+                            "user_id": str(request.user.id),
+                            "size": package.size,
+                            "weight": package.weight,
+                            "retry": "true",
+                        },
+                        automatic_payment_methods={"enabled": True},
+                    )
+
+                    # Update payment record
+                    payment.stripe_payment_intent_id = payment_intent.id
+                    payment.stripe_client_secret = payment_intent.client_secret
+                    payment.status = Payment.PaymentStatus.PENDING
+                    payment.failure_reason = None
+                    payment.save()
+
+                    print(f"[RETRY] Created new payment intent: {payment_intent.id}")
+
+                except stripe.error.StripeError as e:
+                    print(f"[RETRY ERROR] Stripe error: {e}")
+                    return Response(
+                        {"error": f"Failed to create payment: {str(e)}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # Return payment details
+            return Response(
+                {
+                    "message": "Payment ready",
+                    "package_id": str(package.id),
+                    "payment": {
+                        "client_secret": payment.stripe_client_secret,
+                        "amount": str(payment.amount),
+                        "status": payment.status,
+                        "base_price": str(payment.base_price),
+                        "size_surcharge": str(payment.size_surcharge),
+                        "weight_surcharge": str(payment.weight_surcharge),
+                    },
+                }
+            )
+
+        except Package.DoesNotExist:
+            return Response(
+                {"error": "Package not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Payment.DoesNotExist:
+            return Response(
+                {"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            print(f"[RETRY ERROR] Unexpected error: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return Response(
+                {"error": "An unexpected error occurred"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

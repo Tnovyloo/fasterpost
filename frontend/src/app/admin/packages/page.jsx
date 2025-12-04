@@ -128,6 +128,23 @@ export default function PackagesAdminPage() {
     return colors[size] || "bg-gray-100 text-gray-800";
   };
 
+  const handleDeletePackage = async (packageId) => {
+    if (!confirm("Are you sure you want to delete this package?")) return;
+  
+    try {
+      await api.delete(`/api/admin/packages/${packageId}/`);
+      alert("Package deleted successfully!");
+  
+      setShowDetails(false);
+      setSelectedPackage(null);
+  
+      fetchPackages();
+    } catch (err) {
+      console.error("Failed to delete package:", err);
+      alert("Failed to delete package");
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-8 pt-24 text-black">
       <Header></Header>
@@ -290,6 +307,12 @@ export default function PackagesAdminPage() {
                         className="text-blue-600 hover:text-blue-800 font-medium"
                       >
                         View Details
+                      </button>
+                      <button
+                        onClick={() => handleDeletePackage(pkg.id)}
+                        className="text-red-600 hover:text-red-800 font-medium ml-3"
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>

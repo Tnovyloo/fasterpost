@@ -13,3 +13,4 @@ https://myaccount.google.com/apppasswords
 ## Klucz Stripe
 Aby otrzymać klucze stripe nalezy wejść pod link (z wcześniej załozonym kontem)
 https://dashboard.stripe.com/
+

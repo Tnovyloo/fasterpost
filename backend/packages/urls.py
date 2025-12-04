@@ -7,6 +7,7 @@ from packages.views.views_packages import (
     PaymentStatusView,
     UserPaymentsView,
     StripeWebhookView,
+    RetryPaymentView,
 )
 
 urlpatterns = [
@@ -29,4 +30,10 @@ urlpatterns = [
     path("payments/my-payments/", UserPaymentsView.as_view(), name="my-payments"),
     # # Stripe webhook
     path("payments/webhook/", StripeWebhookView.as_view(), name="stripe-webhook"),
+    # Retry payment for failed/pending packages
+    path(
+        "payments/retry/<uuid:package_id>/",
+        RetryPaymentView.as_view(),
+        name="retry-payment",
+    ),
 ]
