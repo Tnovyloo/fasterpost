@@ -1,7 +1,6 @@
 from django.db import models
 import uuid
 
-from logistics.models import Route
 from accounts.models import User
 
 
@@ -87,7 +86,9 @@ class Actualization(models.Model):
     )
     route_remaining = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    routes = models.ManyToManyField(Route, related_name="actualizations", blank=True)
+    routes = models.ManyToManyField(
+        "logistics.Route", related_name="actualizations", blank=True
+    )
 
     class Meta:
         ordering = ["-created_at"]
