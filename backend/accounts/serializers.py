@@ -110,7 +110,7 @@ class SafeUserSerializer(serializers.ModelSerializer):
             "last_name",
             "phone_number",
             "role",
-            "date_joined"
+            "date_joined",
         )
         read_only_fields = ("id", "role", "date_joined")
 
@@ -120,14 +120,14 @@ class SafeUserSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError("This username is already taken.")
         return value
-    
+
     def validate_email(self, value):
         user = self.context["request"].user
         qs = User.objects.filter(email__iexact=value).exclude(pk=user.pk)
         if qs.exists():
             raise serializers.ValidationError("This email is already taken.")
         return value
-    
+
     def update(self, instance, validated_data):
         for attr, val in validated_data.items():
             setattr(instance, attr, val)
@@ -198,12 +198,30 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             )
         return value
 
+
 # Admin panel serializers
 # users/serializers.py
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 
 class AdminUserSerializer(serializers.ModelSerializer):
-    """Admin panel serializers."""
+    """Admin panel serializer with secure password handling."""
+
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        style={"input_type": "password"},
+    )
+
+    confirm_password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        style={"input_type": "password"},
+    )
 
     class Meta:
         model = User
@@ -220,5 +238,78 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "is_staff",
             "is_active",
             "is_superuser",
+            "password",
+            "confirm_password",
         ]
         read_only_fields = ["date_joined", "id"]
+        extra_kwargs = {
+            "password": {"write_only": True},
+            "confirm_password": {"write_only": True},
+        }
+
+    def validate(self, attrs):
+        """Validate password fields."""
+        password = attrs.get("password", "").strip()  # Strip whitespace
+        confirm_password = attrs.pop("confirm_password", "").strip()  # Strip whitespace
+
+        print("heh", password, " xd ", confirm_password)
+
+        # If password is provided and not empty, validate it
+        if password:
+            # Check if passwords match
+            if password != confirm_password:
+                raise serializers.ValidationError(
+                    {"password": "Passwords do not match."}
+                )
+
+            # Validate password strength
+            try:
+                user = self.instance if self.instance else User(**attrs)
+                validate_password(password, user)
+            except DjangoValidationError as e:
+                raise serializers.ValidationError({"password": list(e.messages)})
+
+            # Keep the password in attrs for create/update
+            attrs["password"] = password
+        else:
+            # Remove empty password from attrs
+            attrs.pop("password", None)
+
+            # Password is required when creating a new user
+            if not self.instance:
+                raise serializers.ValidationError(
+                    {"password": "Password is required when creating a new user."}
+                )
+
+        return attrs
+
+    def create(self, validated_data):
+        """Create user with hashed password."""
+        password = validated_data.pop("password")
+        user = User.objects.create_user(
+            email=validated_data["email"],
+            username=validated_data["username"],
+            password=password,
+        )
+
+        # Set other fields
+        for attr, value in validated_data.items():
+            setattr(user, attr, value)
+
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        """Update user, only hash password if provided."""
+        password = validated_data.pop("password", None)
+
+        # Update all other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Only update password if provided and not empty
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
