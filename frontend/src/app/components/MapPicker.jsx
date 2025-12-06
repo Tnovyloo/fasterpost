@@ -27,7 +27,7 @@ function MapEvents({ setPosition, readonly }) {
 export default function MapPicker({ position, setPosition, readonly = false }) {
   return (
     <div className="h-96 rounded-lg overflow-hidden border shadow-md relative">
-      <MapContainer center={position} zoom={15} style={{ height: "100%", width: "100%" }}>
+      <MapContainer center={position} zoom={15} style={{ height: "100%", width: "100%", zIndex: 0}}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'

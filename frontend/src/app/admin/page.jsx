@@ -50,11 +50,11 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-gray-50 flex mt-10">
         <Header />
 
         {/* Sidebar */}
-        <div className={`${sidebarOpen ? "w-72" : "w-20"} transition-all duration-300 bg-white shadow-lg border-r border-gray-200 flex flex-col`}>
+        <div className={`${sidebarOpen ? "w-72" : "w-20"} transition-all duration-300 bg-white shadow-lg border-r border-gray-200 flex flex-col mt-4`}>
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
