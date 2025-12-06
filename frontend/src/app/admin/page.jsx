@@ -42,7 +42,7 @@ export default function AdminDashboard() {
     {
       id: "accounts",
       title: "User Accounts",
-      href: "/admin/accounts",
+      href: "/admin/users",
       icon: <Users className="w-5 h-5" />,
       color: "bg-pink-600",
     },
