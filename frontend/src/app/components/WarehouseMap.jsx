@@ -1,22 +1,23 @@
 "use client"
 
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polyline } from "react-leaflet";
-import L from "leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 export default function WarehouseMap({ warehouses }) {
-  const [L, setL] = useState(null);
+  const [Leaflet, setLeaflet] = useState(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       import("leaflet").then((mod) => {
-        const leaflet = mod.default;
-        setL(leaflet);
+        const L = mod.default;
+        setLeaflet(L);
         
         // Fix for default markers
-        delete leaflet.Icon.Default.prototype._getIconUrl;
-        leaflet.Icon.Default.mergeOptions({
+        if (L.Icon.Default.prototype._getIconUrl) {
+            delete L.Icon.Default.prototype._getIconUrl;
+        }
+        L.Icon.Default.mergeOptions({
           iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
           iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
           shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
@@ -25,11 +26,11 @@ export default function WarehouseMap({ warehouses }) {
     }
   }, []);
 
-  if (!L || warehouses.length === 0) {
+  if (!Leaflet || warehouses.length === 0) {
     return (
       <div className="h-96 rounded-lg border bg-gray-50 flex items-center justify-center">
         <p className="text-gray-500">
-          {!L ? "Loading map..." : "No warehouses to display"}
+          {!Leaflet ? "Loading map..." : "No warehouses to display"}
         </p>
       </div>
     );
@@ -81,7 +82,7 @@ export default function WarehouseMap({ warehouses }) {
   };
 
   const createColoredIcon = (color) => {
-    return L.divIcon({
+    return Leaflet.divIcon({
       className: "custom-icon",
       html: `<div style="background-color: ${color}; width: 25px; height: 25px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
       iconSize: [25, 25],
@@ -93,8 +94,9 @@ export default function WarehouseMap({ warehouses }) {
     <MapContainer
       center={center}
       zoom={6}
-      style={{ height: "600px", width: "100%", borderRadius: "0.75rem" }}
-      className="shadow-lg"
+
+      style={{ height: "600px", width: "100%", borderRadius: "0.75rem", zIndex: 0 }}
+      className="shadow-lg relative"
     >
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

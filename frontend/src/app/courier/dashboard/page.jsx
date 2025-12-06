@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Header from "@/app/components/Header";
+import AddressDisplay from "@/app/components/AddressDisplay";
 import api from "@/axios/api";
 
 // --- Helper Components for Icons ---
@@ -17,6 +18,51 @@ const CheckIcon = () => (
 const MapPinIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
 );
+
+// --- New Helper: Collapsible Package List ---
+const PackageDropdown = ({ type, packages }) => {
+  if (!packages || packages.length === 0) return null;
+
+  const isPickup = type === 'pickup';
+  const theme = isPickup 
+    ? { bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-900', hover: 'hover:bg-amber-100' }
+    : { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-900', hover: 'hover:bg-blue-100' };
+
+  return (
+    <details className={`rounded-lg border ${theme.border} ${theme.bg} overflow-hidden group mb-2`}>
+      <summary className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none transition-colors ${theme.hover}`}>
+        <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${theme.text}`}>
+          <span className="text-lg">{isPickup ? '⬆' : '⬇'}</span>
+          <span>{isPickup ? 'Pickups' : 'Dropoffs'}</span>
+          <span className="bg-white/50 px-2 py-0.5 rounded-full ml-1">{packages.length}</span>
+        </div>
+        {/* Chevron Icon that rotates */}
+        <svg className={`w-4 h-4 ${theme.text} transform transition-transform duration-200 group-open:rotate-180`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      
+      <div className="px-4 pb-4 pt-1 space-y-2">
+        {packages.map(pkg => (
+          <div key={pkg.id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-100 shadow-sm text-sm">
+            <div className="flex items-center gap-3">
+              <div className={`p-1.5 rounded-full ${isPickup ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                <PackageIcon />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-mono font-medium text-gray-700">
+                   {pkg.pickup_code ? pkg.pickup_code : `PKG-${pkg.id.slice(0,6)}`}
+                </span>
+                <span className="text-xs text-gray-500 capitalize">{pkg.size} Size</span>
+              </div>
+            </div>
+            {pkg.weight && <span className="text-xs font-medium text-gray-400">{pkg.weight}kg</span>}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+};
 
 export default function CourierDashboard() {
   const API_BASE = "/api/courier/routes";
@@ -259,7 +305,7 @@ export default function CourierDashboard() {
                                    </h3>
                                    <div className="flex items-center text-sm text-gray-500 mt-1">
                                       <MapPinIcon />
-                                      <span className="ml-1">{stop.warehouse.latitude}, {stop.warehouse.longitude}</span>
+                                      <AddressDisplay lat={stop.warehouse.latitude} lon={stop.warehouse.longitude} />
                                    </div>
                                  </div>
                                  
@@ -270,53 +316,20 @@ export default function CourierDashboard() {
                                  )}
                                </div>
 
-                               {/* Packages Section */}
-                               <div className="space-y-3">
-                                 {/* Pickups */}
-                                 {stop.pickups.length > 0 && (
-                                   <div className="bg-amber-50 rounded-md p-3 border border-amber-100">
-                                      <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-2 flex items-center gap-2">
-                                        <span>⬆</span> Pickup ({stop.pickups.length})
-                                      </p>
-                                      <div className="space-y-1">
-                                        {stop.pickups.map(pkg => (
-                                          <div key={pkg.id} className="flex items-center gap-2 text-sm text-amber-900 bg-white/50 px-2 py-1 rounded">
-                                            <PackageIcon />
-                                            <span className="font-mono">{pkg.pickup_code || 'NO-CODE'}</span>
-                                            <span className="text-xs opacity-75">({pkg.size})</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                   </div>
-                                 )}
+                               {/* Dropdown Packages Section */}
+                               <div>
+                                 <PackageDropdown type="pickup" packages={stop.pickups} />
+                                 <PackageDropdown type="dropoff" packages={stop.dropoffs} />
 
-                                 {/* Dropoffs */}
-                                 {stop.dropoffs.length > 0 && (
-                                   <div className="bg-blue-50 rounded-md p-3 border border-blue-100">
-                                      <p className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-2 flex items-center gap-2">
-                                        <span>⬇</span> Dropoff ({stop.dropoffs.length})
-                                      </p>
-                                      <div className="space-y-1">
-                                        {stop.dropoffs.map(pkg => (
-                                          <div key={pkg.id} className="flex items-center gap-2 text-sm text-blue-900 bg-white/50 px-2 py-1 rounded">
-                                            <PackageIcon />
-                                            <span className="font-mono">PKG-{pkg.id.slice(0,6)}</span>
-                                            <span className="text-xs opacity-75">({pkg.size})</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                   </div>
-                                 )}
-
-                                 {/* Helper if nothing to do (Hub Stop usually) */}
+                                 {/* Helper if nothing to do */}
                                  {stop.pickups.length === 0 && stop.dropoffs.length === 0 && (
-                                    <p className="text-sm text-gray-400 italic">No package exchange scheduled.</p>
+                                    <p className="text-sm text-gray-400 italic py-2">No package exchange scheduled.</p>
                                  )}
                                </div>
 
                                {/* Action Button for THIS stop */}
                                {isNext && route.status === 'in_progress' && (
-                                 <div className="mt-4 pt-4 border-t border-indigo-100">
+                                 <div className="mt-2 pt-4 border-t border-indigo-100">
                                    <button
                                      onClick={() => handleCompleteStop(stop.id)}
                                      disabled={actionLoading}
