@@ -12,6 +12,7 @@ class PostmatSerializer(serializers.ModelSerializer):
             "name",
             "warehouse_id",
             "status",
+            "address",
             "latitude",
             "longitude",
         ]
@@ -41,7 +42,7 @@ class PostmatAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = Postmat
         fields = [
-            "id", "warehouse", "warehouse_id", "name", "status", "display_status",
+            "id", "warehouse", "warehouse_id", "name", "status", "display_status", "address",
             "latitude", "longitude", "postal_code", "stashes"
         ]
         read_only_fields = ["id"]

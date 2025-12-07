@@ -1,8 +1,6 @@
 from django.db import models
 import uuid
-
 from accounts.models import User
-
 
 class Package(models.Model):
     class PackageSize(models.TextChoices):
