@@ -51,6 +51,7 @@ class PackageListSerializer(serializers.ModelSerializer):
             "id",
             "receiver_name",
             "receiver_phone",
+            "receiver_email",
             "size",
             "weight",
             "origin_postmat_name",
@@ -152,6 +153,7 @@ class SendPackageSerializer(serializers.Serializer):
     destination_postmat_id = serializers.UUIDField()
     receiver_name = serializers.CharField()
     receiver_phone = serializers.CharField()
+    receiver_email = serializers.CharField()
     size = serializers.ChoiceField(choices=Package.PackageSize.choices)
     weight = serializers.IntegerField()
 
@@ -176,8 +178,6 @@ class SendPackageSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
-        from .utils import find_nearest_postmat_with_stash, generate_unlock_code
-        from .models import Actualization
 
         user = self.context["request"].user
         origin_pm = validated_data["origin_postmat"]
@@ -207,6 +207,10 @@ class SendPackageSerializer(serializers.Serializer):
 
         unlock_code = generate_unlock_code()
 
+        receiver_user = User.objects.filter(
+            email=validated_data["receiver_email"]
+        ).first()
+
         # 3. Create package (without payment yet)
         package = Package.objects.create(
             origin_postmat=origin_pm,
@@ -217,6 +221,8 @@ class SendPackageSerializer(serializers.Serializer):
             size=size,
             weight=validated_data["weight"],
             unlock_code=unlock_code,
+            receiver_user=receiver_user,
+            receiver_email=validated_data["receiver_email"],
             route_path=[],
         )
 
@@ -271,6 +277,70 @@ class SendPackageSerializer(serializers.Serializer):
         # )
 
         return package
+
+    def update(self, instance, validated_data):
+        """Update an existing package before payment is completed"""
+
+        # Get new values
+        new_origin_pm = validated_data.get("origin_postmat", instance.origin_postmat)
+        new_destination_pm = validated_data.get(
+            "destination_postmat", instance.destination_postmat
+        )
+        new_size = validated_data.get("size", instance.size)
+        new_weight = validated_data.get("weight", instance.weight)
+        new_receiver_name = validated_data.get("receiver_name", instance.receiver_name)
+        new_receiver_phone = validated_data.get(
+            "receiver_phone", instance.receiver_phone
+        )
+        new_receiver_email = validated_data.get("receiver_email")
+
+        # Check if origin postmat or size changed - need new stash
+        if new_origin_pm.id != instance.origin_postmat_id or new_size != instance.size:
+            # Release old stash
+            Stash.objects.filter(package=instance).update(
+                package=None, is_empty=True, reserved_until=None
+            )
+
+            # Find new stash
+            stash = new_origin_pm.stashes.filter(
+                size=new_size, is_empty=True, reserved_until__isnull=True
+            ).first()
+
+            if not stash:
+                # Find nearest postmat with available stash
+                alt_pm = find_nearest_postmat_with_stash(new_origin_pm, new_size)
+                if not alt_pm:
+                    raise serializers.ValidationError(
+                        "No available stash in any postmat for this size."
+                    )
+                new_origin_pm = alt_pm
+                stash = alt_pm.stashes.filter(
+                    size=new_size, is_empty=True, reserved_until__isnull=True
+                ).first()
+
+            # Reserve new stash
+            stash.package = instance
+            stash.is_empty = True
+            stash.reserved_until = datetime.now() + timedelta(days=1)
+            stash.save()
+
+        # Update package fields
+        instance.origin_postmat = new_origin_pm
+        instance.destination_postmat = new_destination_pm
+        instance.receiver_name = new_receiver_name
+        instance.receiver_phone = new_receiver_phone
+        instance.size = new_size
+        instance.weight = new_weight
+        instance.receiver_email = validated_data["receiver_email"]
+
+        # Update receiver_user if email changed
+        if new_receiver_email:
+            receiver_user = User.objects.filter(email=new_receiver_email).first()
+            instance.receiver_user = receiver_user
+
+        instance.save()
+
+        return instance
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -467,6 +537,7 @@ class SenderPackageDetailSerializer(serializers.ModelSerializer):
             "sender_name",
             "receiver_name",
             "receiver_phone",
+            "receiver_email",
             "size",
             "weight",
             "route_path",
