@@ -274,6 +274,7 @@ export default function SendPackagePage() {
   const [destination, setDestination] = useState(null);
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
+  const [receiverEmail, setReceiverEmail] = useState("");
   const [size, setSize] = useState("small");
   const [weight, setWeight] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -326,6 +327,7 @@ export default function SendPackagePage() {
         destination_postmat_id: destination.id,
         receiver_name: receiverName,
         receiver_phone: receiverPhone,
+        receiver_email: receiverEmail,
         size: size,
         weight: Number(weight),
       });
@@ -442,6 +444,17 @@ export default function SendPackagePage() {
             </div>
 
             <div>
+              <label className="block font-medium text-black">Receiver Email</label>
+              <input
+                type="email"
+                className="w-full border rounded-xl p-2 mt-1 text-black"
+                value={receiverEmail}
+                onChange={(e) => setReceiverEmail(e.target.value)}
+                disabled={showPayment}
+              />
+            </div>
+
+            <div>
               <label className="block font-medium text-black">Size</label>
               <select
                 className="w-full border rounded-xl p-2 mt-1 text-black"
@@ -520,17 +533,24 @@ export default function SendPackagePage() {
                 {loading ? "Creating Package..." : "Create Package & Pay"}
               </button>
             ) : (
-              <div className="mt-4">
-                <h3 className="text-lg font-semibold text-black mb-3">Complete Payment</h3>
-                {clientSecret && (
-                  <Elements options={options} stripe={stripePromise}>
-                    <PaymentForm 
-                      onSuccess={handlePaymentSuccess}
-                      packageId={response?.package_id}
-                    />
-                  </Elements>
-                )}
-              </div>
+              <>
+                <div
+                  className="p-3 rounded-xl mt-2 bg-yellow-100 text-yellow-800 border border-yellow-400"
+                >
+                  <p>After payment, you won't be able to edit any parcel information (recipient's email, phone number, parcel locker selection, etc.). If you're unsure about any of the details, complete the payment later in the Account tab.</p>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-lg font-semibold text-black mb-3">Complete Payment</h3>
+                  {clientSecret && (
+                    <Elements options={options} stripe={stripePromise}>
+                      <PaymentForm 
+                        onSuccess={handlePaymentSuccess}
+                        packageId={response?.package_id}
+                      />
+                    </Elements>
+                  )}
+                </div>
+              </>
             )}
 
             {response && message?.type === "success" && (

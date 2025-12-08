@@ -31,7 +31,7 @@ class PostmatAdmin(admin.ModelAdmin):
 
 @admin.register(Stash)
 class StashAdmin(admin.ModelAdmin):
-    list_display = ("id", "postmat", "size", "is_empty", "reserved_until")
+    list_display = ("id", "postmat", "size", "is_empty", "reserved_until", "package")
     list_filter = ("size", "is_empty")
     search_fields = ("postmat__name",)
     ordering = ("postmat", "size")
