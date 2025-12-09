@@ -1,6 +1,8 @@
+import time
 from django.db import models, transaction
 from django.conf import settings
 from django.utils import timezone
+import requests
 from proj import utils
 import uuid
 
@@ -20,6 +22,8 @@ class Warehouse(models.Model):
     longitude = models.FloatField()
     status = models.CharField(max_length=20, choices=WarehouseStatus.choices, default='active')
     connections = models.JSONField(default=list)
+    
+    address = models.CharField(max_length=255, blank=True, null=True, help_text="Cached address from geocoding")
 
     # Dev string representation
     def __str__(self):
@@ -44,20 +48,40 @@ class Warehouse(models.Model):
         """Extract IDs from connections, whether user provided IDs or full dicts."""
         if not self.connections:
             return []
-        # if dicts: [{"id": "...", ...}]
         if isinstance(self.connections[0], dict):
-            return [str(c["id"]) for c in self.connections]  # ← Add str() here
-        # if raw: ["id1", "id2"]
+            return [str(c["id"]) for c in self.connections]
         return [str(conn_id) for conn_id in self.connections]
 
     @transaction.atomic
     def save(self, *args, **kwargs):
+        # --- GEOCODING LOGIC START ---
+        should_fetch = False
+        if self._state.adding and not self.address:
+            should_fetch = True
+        else:
+            try:
+                old = Warehouse.objects.get(pk=self.pk)
+                if (old.latitude != self.latitude or old.longitude != self.longitude) and not self.address:
+                    should_fetch = True
+            except Warehouse.DoesNotExist:
+                pass
+
+        if should_fetch:
+            try:
+                fetched = self._fetch_osm_address()
+                if fetched:
+                    self.address = fetched
+                    # 1s delay to respect OSM policy during manual edits
+                    time.sleep(1.1) 
+            except Exception as e:
+                print(f"Warning: Geocoding failed for {self.city}: {e}")
+        # --- GEOCODING LOGIC END ---
+
         super().save(*args, **kwargs)
 
-        # Extract IDs user intended
+        # --- EXISTING CONNECTION LOGIC ---
         intended_ids = self._extract_ids()
 
-        # Prepare new connections for self
         new_conns = []
         for wid in intended_ids:
             try:
@@ -66,33 +90,26 @@ class Warehouse(models.Model):
                 continue
             new_conns.append(self._make_entry(wh))
 
-        # Persist updated format
         if self.connections != new_conns:
             self.connections = new_conns
             super().save(update_fields=["connections"])
 
-        # Get all warehouses that should have connections
         all_related_warehouses = Warehouse.objects.exclude(id=self.id)
         
         for other in all_related_warehouses:
             other_ids = other._extract_ids()
             my_id = str(self.id)
             
-            # Should this warehouse be connected to me?
             should_be_connected = str(other.id) in intended_ids
             is_connected = my_id in other_ids
             
             if should_be_connected and not is_connected:
-                # Add connection A → B means add B → A
                 other_ids.append(my_id)
             elif not should_be_connected and is_connected:
-                # Remove connection: A removed B means B should remove A
                 other_ids = [oid for oid in other_ids if oid != my_id]
             else:
-                # No change needed
                 continue
             
-            # Recompute their formatted connections list
             updated_other_conns = []
             for oid in other_ids:
                 try:
@@ -101,9 +118,46 @@ class Warehouse(models.Model):
                     continue
                 updated_other_conns.append(other._make_entry(w))
             
-            # Save updated warehouse
             other.connections = updated_other_conns
             super(Warehouse, other).save(update_fields=["connections"])
+
+    def _fetch_osm_address(self) -> str:
+        if not self.latitude or not self.longitude:
+            return ""
+        
+        url = "https://nominatim.openstreetmap.org/reverse"
+        params = {
+            "format": "json",
+            "lat": self.latitude,
+            "lon": self.longitude,
+            "zoom": 14, # City level zoom
+            "addressdetails": 1
+        }
+        headers = {
+            "User-Agent": "LogisticApp/1.0 (admin@logistics.com)", 
+            "Accept-Language": "pl"
+        }
+        
+        try:
+            resp = requests.get(url, params=params, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                addr = data.get('address', {})
+                
+                # Prioritize city/town/village
+                city = addr.get('city', '') or addr.get('town', '') or addr.get('village', '')
+                state = addr.get('state', '')
+                road = addr.get('road', '')
+                
+                parts = []
+                if road: parts.append(road)
+                if city: parts.append(city)
+                if state: parts.append(state)
+                
+                return ", ".join(parts) if parts else data.get('display_name', '')[:255]
+        except Exception:
+            return ""
+        return ""
 
 class Route(models.Model):
     """Represents a planned warehouse courier route"""

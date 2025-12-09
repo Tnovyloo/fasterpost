@@ -2,8 +2,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from rest_framework.response import Response
 
 from django.http import HttpResponse
 from django.db.models import OuterRef, Subquery
@@ -16,7 +14,7 @@ from accounts.models import User
 from postmats.models import Postmat, Stash
 from payments.models import Payment, WebhookEvent
 
-from ..serializers import SendPackageSerializer
+from ..serializers import SendPackageSerializer, PackageDetailSerializer
 from accounts.authentication import CustomTokenAuthentication
 
 import stripe
@@ -255,9 +253,10 @@ class StripeWebhookView(APIView):
         print(
             f"[WEBHOOK DEBUG] Webhook secret configured: {bool(settings.STRIPE_WEBHOOK_SECRET)}"
         )
-        print(
-            f"[WEBHOOK DEBUG] Webhook secret (first 10 chars): {settings.STRIPE_WEBHOOK_SECRET[:10] if settings.STRIPE_WEBHOOK_SECRET else 'NOT SET'}"
-        )
+        # Be careful logging secrets in production
+        # print(
+        #     f"[WEBHOOK DEBUG] Webhook secret (first 10 chars): {settings.STRIPE_WEBHOOK_SECRET[:10] if settings.STRIPE_WEBHOOK_SECRET else 'NOT SET'}"
+        # )
 
         try:
             event = stripe.Webhook.construct_event(
@@ -602,6 +601,8 @@ class OpenStashView(APIView):
 
 
 class PackageDetailView(APIView):
+    # Fix: Ensure user is authenticated
+    authentication_classes = [CustomTokenAuthentication]
     permission_classes = [IsAuthenticated]
     authentication_classes = [CustomTokenAuthentication]
 
