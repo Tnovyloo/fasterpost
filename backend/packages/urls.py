@@ -1,7 +1,6 @@
 from django.urls import path
 from packages.views.views_packages import (
     UserPackagesView,
-    ParcelDetailView,
     SendPackageView,
     PricingCalculatorView,
     PaymentStatusView,
@@ -9,15 +8,19 @@ from packages.views.views_packages import (
     StripeWebhookView,
     RetryPaymentView,
     OpenStashView,
-    PackageDetailView
+    PackageDetailView,
 )
 
 urlpatterns = [
     path("user/", UserPackagesView.as_view()),
-    path("user/<uuid:id>", ParcelDetailView.as_view()),
     path("send-package/", SendPackageView.as_view(), name="send-package"),
+    path(
+        "send-package/<uuid:package_id>", SendPackageView.as_view(), name="edit-package"
+    ),
     path("open-stash/<uuid:package_id>/", OpenStashView.as_view(), name="open-stash"),
-    path("details/<uuid:package_id>/", PackageDetailView.as_view(), name="package-detail"),
+    path(
+        "details/<uuid:package_id>/", PackageDetailView.as_view(), name="package-detail"
+    ),
     # # Pricing calculator
     path(
         "payments/calculate-price/",

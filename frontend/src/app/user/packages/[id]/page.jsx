@@ -156,6 +156,10 @@ export default function PackageDetailsPage() {
                     <p className="text-sm text-gray-500">Receiver Phone</p>
                     <p className="font-semibold text-gray-800">{packageData.receiver_phone}</p>
                   </div>
+                  <div className="col-span-2">
+                    <p className="text-sm text-gray-500">Receiver Email</p>
+                    <p className="font-semibold text-gray-800">{packageData.receiver_email}</p>
+                  </div>
                 </div>
 
                 {/* Codes */}

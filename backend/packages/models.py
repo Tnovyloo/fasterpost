@@ -21,10 +21,21 @@ class Package(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     receiver_name = models.CharField(max_length=255)
     receiver_phone = models.CharField(max_length=20)
+    receiver_user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="receiver_user",
+    )
+    receiver_email = models.CharField(max_length=100, null=True, blank=True)
     size = models.CharField(max_length=10, choices=PackageSize.choices)
     weight = models.PositiveIntegerField()
     unlock_code = models.CharField(max_length=10, blank=True, null=True)
     route_path = models.JSONField()
+
+    def __str__(self):
+        return self.size + " " + self.sender.email + "→" + self.receiver_email
 
 
 class Actualization(models.Model):

@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from ..models import Package, Actualization
 from accounts.models import User
-from postmats.models import Postmat
+from postmats.models import Postmat, Stash
 from payments.models import Payment, WebhookEvent
 
 from ..serializers import SendPackageSerializer, PackageDetailSerializer
@@ -58,38 +58,6 @@ class UserPackagesView(APIView):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def post(self, request):
-        data = request.data.copy()
-        data["sender"] = request.user.id
-        serializer = PackageSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class ParcelDetailView(APIView):
-    """
-    GET /user/parcels/<uuid:id>
-    """
-    # Fix: Ensure user is authenticated
-    authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, id):
-        user = request.user
-        try:
-            package = Package.objects.get(id=id)
-            if package.sender != user and package.receiver != user:
-                return Response(
-                    {"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND
-                )
-        except Package.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = PackageDetailSerializer(package)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -123,6 +91,101 @@ class SendPackageView(APIView):
                 },
             },
             status=status.HTTP_201_CREATED,
+        )
+
+    def patch(self, request, package_id):
+        try:
+            package = Package.objects.get(id=package_id, sender=request.user)
+        except Package.DoesNotExist:
+            return Response(
+                {"error": "Package not found or you don't have permission to edit it."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if payment has been completed
+        try:
+            payment = Payment.objects.get(package=package)
+            if payment.status == Payment.PaymentStatus.SUCCEEDED:
+                return Response(
+                    {
+                        "error": "Cannot edit package. Payment has already been completed.",
+                        "message": "After payment, you won't be able to edit any parcel information (recipient's email, phone number, parcel locker selection, etc.).",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except Payment.DoesNotExist:
+            return Response(
+                {"error": "Payment information not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        # Store old values to check if pricing fields changed
+        old_size = package.size
+        old_weight = package.weight
+
+        # Use the same serializer with partial update
+        serializer = SendPackageSerializer(
+            package, data=request.data, partial=True, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        updated_package = serializer.save()
+
+        # Recalculate payment if pricing-related fields changed
+        pricing_changed = (
+            updated_package.size != old_size or updated_package.weight != old_weight
+        )
+
+        if pricing_changed:
+            # Recalculate pricing
+            from payments.models import PricingRule
+
+            pricing_data = PricingRule.calculate_price(
+                updated_package.size, updated_package.weight
+            )
+
+            # Update payment with new amounts
+            payment.base_price = pricing_data["base_price"]
+            payment.size_surcharge = pricing_data["size_surcharge"]
+            payment.weight_surcharge = pricing_data["weight_surcharge"]
+            payment.amount = pricing_data["total"]
+            payment.save()
+
+            # If you need to update Stripe PaymentIntent with new amount
+            if payment.stripe_payment_intent_id:
+                import stripe
+
+                try:
+                    stripe.PaymentIntent.modify(
+                        payment.stripe_payment_intent_id,
+                        amount=int(payment.amount * 100),  # Convert to cents
+                    )
+                except stripe.error.StripeError as e:
+                    # Log error but don't fail the request
+                    print(f"Failed to update Stripe PaymentIntent: {e}")
+
+        payment.refresh_from_db()
+
+        return Response(
+            {
+                "message": "Package updated successfully.",
+                "package_id": str(updated_package.id),
+                "origin_postmat": str(updated_package.origin_postmat.name),
+                "destination_postmat": str(updated_package.destination_postmat.name),
+                "receiver_name": updated_package.receiver_name,
+                "receiver_phone": updated_package.receiver_phone,
+                "size": updated_package.size,
+                "weight": updated_package.weight,
+                "unlock_code": updated_package.unlock_code,
+                "payment": {
+                    "client_secret": payment.stripe_client_secret,
+                    "amount": str(payment.amount),
+                    "base_price": str(payment.base_price),
+                    "size_surcharge": str(payment.size_surcharge),
+                    "weight_surcharge": str(payment.weight_surcharge),
+                    "status": payment.status,
+                },
+                "pricing_recalculated": pricing_changed,
+            },
+            status=status.HTTP_200_OK,
         )
 
 
@@ -495,13 +558,16 @@ class OpenStashView(APIView):
                 )
 
             # Check if package has a stash assigned
-            if not hasattr(package, "stash") or not package.stash.exists():
+            if (
+                not hasattr(package, "stash_assignment")
+                or not package.stash_assignment.exists()
+            ):
                 return Response(
                     {"error": "No stash assigned to this package"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            stash = package.stash.first()
+            stash = package.stash_assignment.first()
 
             # Update stash
             stash.reserved_until = None
@@ -538,6 +604,7 @@ class PackageDetailView(APIView):
     # Fix: Ensure user is authenticated
     authentication_classes = [CustomTokenAuthentication]
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CustomTokenAuthentication]
 
     def get(self, request, package_id):
         try:
@@ -564,3 +631,7 @@ class PackageDetailView(APIView):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class CollectPackageView(APIView):
+    permission_classes = [IsAuthenticated]

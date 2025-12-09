@@ -9,6 +9,7 @@ import axiosClient from "@/axios/api";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import PaymentForm from "../components/PaymentForm";
+import EditPackageModal from "../components/EditPackageModal";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -22,6 +23,7 @@ export default function UserPanel() {
   const [bannerMessage, setBannerMessage] = useState("");
   const [bannerType, setBannerType] = useState(""); // "success" | "error"
   const [loadingPackageId, setLoadingPackageId] = useState(null);
+  const [editingPackage, setEditingPackage] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -30,7 +32,6 @@ export default function UserPanel() {
   const loadData = () => {
     axiosClient.get("/accounts/user/").then(res => setUser(res.data));
     axiosClient.get("/api/packages/user/").then(res => setParcels(res.data));
-    
   };
 
   const handleRetryPayment = async (packageId) => {
@@ -52,9 +53,8 @@ export default function UserPanel() {
   const handlePaymentSuccess = async (packageId) => {
     setRetryingPayment(null);
     setClientSecret("");
-    setLoadingPackageId(packageId); // Start loading animation
+    setLoadingPackageId(packageId);
   
-    // Immediately update the parcel status in the UI
     setParcels(prevParcels => 
       prevParcels.map(p => 
         p.id === packageId 
@@ -66,10 +66,9 @@ export default function UserPanel() {
     setBannerMessage("Payment processing... Please wait for confirmation.");
     setBannerType("success");
   
-    // Reload data after a delay to get server confirmation
     setTimeout(async () => {
       await loadData();
-      setLoadingPackageId(null); // Stop loading animation
+      setLoadingPackageId(null);
       setBannerMessage("Payment successful! Your package has been confirmed.");
     }, 2000);
   
@@ -79,6 +78,17 @@ export default function UserPanel() {
   const handleCancelRetry = () => {
     setRetryingPayment(null);
     setClientSecret("");
+  };
+
+  const handleEditPackage = (pkg) => {
+    setEditingPackage(pkg);
+  };
+
+  const handleEditSuccess = () => {
+    setBannerMessage("Package updated successfully!");
+    setBannerType("success");
+    loadData();
+    setTimeout(() => setBannerMessage(""), 4000);
   };
 
   const getPaymentStatusBadge = (status) => {
@@ -135,13 +145,11 @@ export default function UserPanel() {
     } catch (error) {
       console.error("Failed to open stash:", error);
       
-      // Handle specific error messages
       let errorMessage = "Failed to open stash. Please try again.";
       
       if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
         
-        // Add context for payment errors
         if (error.response.data.payment_status) {
           errorMessage += ` (Payment status: ${error.response.data.payment_status})`;
         }
@@ -226,6 +234,10 @@ export default function UserPanel() {
                       <span className="ml-2">{getPackageStatusBadge(p.latest_status)}</span>
                     </div>
                     <div>
+                      <span className="text-gray-500">Receiver email:</span>
+                      <span className="ml-2 font-medium text-gray-800">{p.receiver_email}</span>
+                    </div>
+                    <div>
                       <span className="text-gray-500 font-bold">Amount:</span>
                       <span className="ml-2 font-bold text-gray-800">
                         ${p.payment_amount || "N/A"}
@@ -233,75 +245,91 @@ export default function UserPanel() {
                     </div>
                   </div>
 
-                    <div className="mb-3">
-                        <button
-                          onClick={() => router.push(`user/packages/${p.id}`)}
-                          className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
-                        >
-                          📋 View Details
-                        </button>
+                  {/* Action buttons */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <button
+                      onClick={() => router.push(`user/packages/${p.id}`)}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                    >
+                      📋 View Details
+                    </button>
+
+                    {/* Show Edit button only for non-succeeded payments */}
+                    {p.payment_status !== 'succeeded' && (
+                      <button
+                        onClick={() => handleEditPackage(p)}
+                        className="bg-blue-100 hover:bg-blue-200 text-blue-800 py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                      >
+                        ✏️ Edit Package
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Show Open Stash button for succeeded payments */}
+                  {p.payment_status === 'succeeded' && p.latest_status !== 'placed_in_stash' && (
+                    <button
+                      onClick={() => handleOpenStash(p.id)}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                    >
+                      📦 Open Stash
+                    </button>
+                  )}
+
+                  {/* Show confirmation when placed in stash */}
+                  {p.latest_status === 'placed_in_stash' && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-sm font-semibold text-green-900">
+                        ✅ Package placed in stash successfully!
+                      </p>
                     </div>
+                  )}
 
-                    {/* Show Open Stash button for succeeded payments */}
-                    {p.payment_status === 'succeeded' && p.latest_status !== 'placed_in_stash' && (
-                      <button
-                        onClick={() => handleOpenStash(p.id)}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
-                      >
-                        📦 Open Stash
-                      </button>
-                    )}
+                  {/* Show retry payment button for pending/failed payments */}
+                  {p.can_retry_payment && retryingPayment !== p.id && (
+                    <button
+                      onClick={() => handleRetryPayment(p.id)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors mt-3"
+                    >
+                      {p.payment_status === 'pending' ? '💳 Complete Payment' : '🔄 Retry Payment'}
+                    </button>
+                  )}
 
-                    {/* Show confirmation when placed in stash */}
-                    {p.latest_status === 'placed_in_stash' && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm font-semibold text-green-900">
-                          ✅ Package placed in stash successfully!
-                        </p>
+                  {/* Show payment form when retrying */}
+                  {retryingPayment === p.id && clientSecret && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="font-semibold text-gray-800">Complete Payment</h3>
+                        <button
+                          onClick={handleCancelRetry}
+                          className="text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          Cancel
+                        </button>
                       </div>
-                    )}
-
-                    {/* Show retry payment button for pending/failed payments */}
-                    {p.can_retry_payment && retryingPayment !== p.id && (
-                      <button
-                        onClick={() => handleRetryPayment(p.id)}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
-                      >
-                        {p.payment_status === 'pending' ? '💳 Complete Payment' : '🔄 Retry Payment'}
-                      </button>
-                    )}
-
-                    {/* Show payment form when retrying */}
-                    {retryingPayment === p.id && clientSecret && (
-                      <div className="mt-4 border-t pt-4">
-                        <div className="flex justify-between items-center mb-3">
-                          <h3 className="font-semibold text-gray-800">Complete Payment</h3>
-                          <button
-                            onClick={handleCancelRetry}
-                            className="text-sm text-gray-600 hover:text-gray-800"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                        <Elements options={options} stripe={stripePromise}>
-                          <PaymentForm 
-                            onSuccess={handlePaymentSuccess}
-                            packageId={p.id}
-                          />
-                        </Elements>
-                      </div>
-                    )}
-                  
-
-                  {/* <p className="text-xs text-gray-400 mt-3">
-                    Created: {new Date(p.created_at).toLocaleString('pl-PL')}
-                  </p> */}
+                      <Elements options={options} stripe={stripePromise}>
+                        <PaymentForm 
+                          onSuccess={handlePaymentSuccess}
+                          packageId={p.id}
+                        />
+                      </Elements>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {/* Edit Package Modal */}
+      {editingPackage && (
+        <EditPackageModal
+          package={editingPackage}
+          onClose={() => setEditingPackage(null)}
+          onSuccess={handleEditSuccess}
+        />
+      )}
+
       <Footer />
     </div>
   );

@@ -88,14 +88,15 @@ export default function Header() {
 
         <nav className="hidden md:flex gap-6 text-blue-800 font-medium">
           <NavLink href="/">Home</NavLink>
-          <NavLink href="/user">Account</NavLink>
           {!isLoggedIn ? (
             <>
               <NavLink href="/login">Login</NavLink>
               <NavLink href="/register">Register</NavLink>
+              <NavLink href="/login">Send package</NavLink>
             </>
           ) : (
             <>
+              <NavLink href="/user">Account</NavLink>
               <NavLink href="/send-package">Send package</NavLink>
               <NavLink href="/user/settings">Settings</NavLink>
               {isAdmin && (
