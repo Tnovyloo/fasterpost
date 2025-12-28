@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Postmat, Stash
+from .models import Postmat, Stash, Zone
 from logistics.models import Warehouse
 from logistics.serializers.serializers import WarehouseSimpleSerializer
 
@@ -65,3 +65,20 @@ class StashAdminSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ["id"]
 
+class ZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Zone
+        fields = ['id', 'name', 'color']
+
+class PostmatSimpleSerializer(serializers.ModelSerializer):
+    """Minimal info for routing displays"""
+    zone = ZoneSerializer(read_only=True)
+    
+    class Meta:
+        model = Postmat
+        fields = ['id', 'name', 'address', 'latitude', 'longitude', 'postal_code', 'zone']
+
+class LocalRouteGenerationSerializer(serializers.Serializer):
+    """Input validation for generating local routes"""
+    warehouse_id = serializers.UUIDField(required=True, help_text="UUID of the Warehouse to generate local routes for")
+    date = serializers.DateField(required=False, help_text="Date for route generation (YYYY-MM-DD). Defaults to today.")

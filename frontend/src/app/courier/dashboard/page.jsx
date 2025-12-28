@@ -18,23 +18,36 @@ const CheckIcon = () => (
 const MapPinIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
 );
+const WarehouseIcon = () => (
+  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+);
+const PostmatIcon = () => (
+  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m-8-8h16" /></svg>
+);
 
 // --- Helper: Collapsible Package List ---
-const PackageDropdown = ({ type, packages }) => {
+const PackageDropdown = ({ type, packages, stopType }) => {
   if (!packages || packages.length === 0) return null;
 
   const isPickup = type === 'pickup';
   const theme = isPickup 
-    ? { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', hover: 'hover:bg-amber-100' }
-    : { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', hover: 'hover:bg-blue-100' };
+    ? { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', hover: 'hover:bg-amber-100', iconBg: 'bg-amber-100 text-amber-700' }
+    : { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', hover: 'hover:bg-blue-100', iconBg: 'bg-blue-100 text-blue-700' };
+
+  let actionLabel = "";
+  if (stopType === 'POSTMAT') {
+      actionLabel = isPickup ? "Collect Returns" : "Deposit to Locker";
+  } else {
+      actionLabel = isPickup ? "Load Truck" : "Unload Truck";
+  }
 
   return (
     <details className={`rounded-lg border ${theme.border} ${theme.bg} overflow-hidden group mb-2`}>
       <summary className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none transition-colors ${theme.hover}`}>
         <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${theme.text}`}>
           <span className="text-lg">{isPickup ? '⬆' : '⬇'}</span>
-          <span>{isPickup ? 'Pickups' : 'Dropoffs'}</span>
-          <span className="bg-white/60 px-2 py-0.5 rounded-full ml-1 border border-black/5">{packages.length}</span>
+          <span>{actionLabel}</span>
+          <span className="bg-white/60 px-2 py-0.5 rounded-full ml-1 border border-black/5 min-w-[24px] text-center">{packages.length}</span>
         </div>
         <svg className={`w-4 h-4 ${theme.text} transform transition-transform duration-200 group-open:rotate-180`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -45,17 +58,17 @@ const PackageDropdown = ({ type, packages }) => {
         {packages.map(pkg => (
           <div key={pkg.id} className="flex items-center justify-between p-3 bg-white rounded border border-gray-200 shadow-sm text-sm">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${isPickup ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+              <div className={`p-2 rounded-full ${theme.iconBg}`}>
                 <PackageIcon />
               </div>
               <div className="flex flex-col">
                 <span className="font-mono font-bold text-gray-800">
-                   {pkg.pickup_code ? pkg.pickup_code : `PKG-${pkg.id.slice(0,6)}`}
+                   {pkg.pickup_code ? pkg.pickup_code : `PKG-${pkg.id.slice(0,6).toUpperCase()}`}
                 </span>
                 <span className="text-xs text-gray-500 font-medium capitalize">{pkg.size} Size</span>
               </div>
             </div>
-            {pkg.weight && <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded">{pkg.weight}kg</span>}
+            {pkg.weight && <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">{pkg.weight}kg</span>}
           </div>
         ))}
       </div>
@@ -87,7 +100,9 @@ export default function CourierDashboard() {
       if (err.response?.status === 404) {
         setRoute(null);
       } else {
-        setError("Failed to load route data. Please try refreshing.");
+        const backendMsg = err.response?.data?.detail || err.response?.data?.error;
+        const msg = backendMsg ? JSON.stringify(backendMsg) : err.message;
+        setError(`Failed to load route: ${msg}`);
       }
     } finally {
       setLoading(false);
@@ -105,7 +120,7 @@ export default function CourierDashboard() {
       await api.post(`${API_BASE}/${route.id}/start/`, {}, getAuthConfig());
       await fetchCurrentRoute();
     } catch (err) {
-      alert("Error starting route");
+      alert("Error starting route: " + (err.response?.data?.error || err.message));
     } finally {
       setActionLoading(false);
     }
@@ -118,7 +133,7 @@ export default function CourierDashboard() {
       await api.post(`${API_BASE}/${route.id}/complete-stop/${stopId}/`, {}, getAuthConfig());
       await fetchCurrentRoute();
     } catch (err) {
-      alert(err.response?.data?.error || "Error completing stop");
+      alert("Error completing stop: " + (err.response?.data?.error || err.message));
     } finally {
       setActionLoading(false);
     }
@@ -131,10 +146,34 @@ export default function CourierDashboard() {
       await api.post(`${API_BASE}/${route.id}/finish/`, {}, getAuthConfig());
       await fetchCurrentRoute();
     } catch (err) {
-      alert("Error finishing route");
+      alert("Error finishing route: " + (err.response?.data?.error || err.message));
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // Helper to determine display info for a stop (Warehouse vs Postmat)
+  const getStopInfo = (stop) => {
+    if (stop.postmat) {
+      return {
+        type: 'POSTMAT',
+        title: `Paczkomat ${stop.postmat.name}`,
+        subtitle: stop.postmat.address,
+        lat: stop.postmat.latitude,
+        lon: stop.postmat.longitude,
+        icon: <PostmatIcon />
+      };
+    } else if (stop.warehouse) {
+      return {
+        type: 'WAREHOUSE',
+        title: `Magazyn ${stop.warehouse.city}`,
+        subtitle: stop.warehouse.address || `${stop.warehouse.city} Hub`,
+        lat: stop.warehouse.latitude,
+        lon: stop.warehouse.longitude,
+        icon: <WarehouseIcon />
+      };
+    }
+    return { type: 'UNKNOWN', title: 'Unknown Location', subtitle: '', icon: <MapPinIcon />, lat: 0, lon: 0 };
   };
 
   if (loading && !route) {
@@ -153,6 +192,8 @@ export default function CourierDashboard() {
   const completedStops = route?.stops?.filter(s => s.completed_at).length || 0;
   const progressPercent = totalStops === 0 ? 0 : (completedStops / totalStops) * 100;
   const nextStopIndex = route?.stops?.findIndex(s => !s.completed_at);
+  const nextStop = route?.stops?.[nextStopIndex];
+  const nextStopInfo = nextStop ? getStopInfo(nextStop) : null;
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-6">
@@ -164,8 +205,16 @@ export default function CourierDashboard() {
         <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Courier Dashboard</h1>
-              <p className="text-gray-500 font-medium mt-1">
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-3xl font-bold text-gray-900">Courier Dashboard</h1>
+                {route && (
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide border 
+                        ${route.route_type === 'last_mile' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-indigo-100 text-indigo-700 border-indigo-200'}`}>
+                        {route.route_type === 'last_mile' ? 'LAST MILE' : 'LINE HAUL'}
+                    </span>
+                )}
+              </div>
+              <p className="text-gray-500 font-medium">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
@@ -197,7 +246,7 @@ export default function CourierDashboard() {
                <TruckIcon />
              </div>
              <h3 className="text-2xl font-bold text-gray-900">No active route</h3>
-             <p className="text-gray-500 mt-2 font-medium">You don't have any routes scheduled for today yet.</p>
+             <p className="text-gray-500 mt-2 font-medium">You don't have any routes scheduled.</p>
            </div>
         )}
 
@@ -220,7 +269,7 @@ export default function CourierDashboard() {
                 </div>
                 <div className="flex justify-between text-sm font-medium text-gray-600 pt-2 border-t border-gray-100">
                    <div className="flex flex-col">
-                     <span className="text-xs text-gray-400 uppercase">Distance</span>
+                     <span className="text-xs text-gray-400 uppercase">Total Distance</span>
                      <span className="text-gray-900">{route.total_distance} km</span>
                    </div>
                    <div className="flex flex-col text-right">
@@ -231,7 +280,7 @@ export default function CourierDashboard() {
               </div>
 
               {/* Main Action Button */}
-              <div className="bg-white rounded-xl shadow border border-gray-200 p-6 flex items-center justify-center">
+              <div className="bg-white rounded-xl shadow border border-gray-200 p-6 flex flex-col items-center justify-center">
                  {route.status === 'planned' && (
                     <button 
                       onClick={handleStartRoute}
@@ -242,12 +291,13 @@ export default function CourierDashboard() {
                     </button>
                  )}
                  
-                 {route.status === 'in_progress' && completedStops < totalStops && (
+                 {route.status === 'in_progress' && completedStops < totalStops && nextStopInfo && (
                     <div className="text-center w-full">
-                      <p className="text-xs font-bold text-gray-400 uppercase mb-2">Current Destination</p>
-                      <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3">
-                        <h3 className="text-xl font-bold text-indigo-900 truncate">
-                          {route.stops[nextStopIndex]?.warehouse?.city}
+                      <p className="text-xs font-bold text-gray-400 uppercase mb-2">Next Destination</p>
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-center justify-center gap-3">
+                        <span className="text-indigo-500">{nextStopInfo.type === 'POSTMAT' ? <PostmatIcon /> : <WarehouseIcon />}</span>
+                        <h3 className="text-lg font-bold text-indigo-900 truncate">
+                          {nextStopInfo.title}
                         </h3>
                       </div>
                     </div>
@@ -286,6 +336,8 @@ export default function CourierDashboard() {
                        const isCompleted = !!stop.completed_at;
                        const isNext = !isCompleted && index === nextStopIndex;
                        const isPending = !isCompleted && !isNext;
+                       
+                       const info = getStopInfo(stop);
 
                        return (
                          <div key={stop.id} className={`relative flex items-start gap-4 ${isPending ? 'opacity-50 grayscale transition-opacity hover:opacity-100' : ''}`}>
@@ -307,13 +359,20 @@ export default function CourierDashboard() {
                             `}>
                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 gap-2">
                                  <div>
-                                   <h3 className={`font-bold text-lg ${isNext ? 'text-indigo-900' : 'text-gray-900'}`}>
-                                     {stop.warehouse.city}
-                                   </h3>
-                                   <div className="flex items-center text-sm text-gray-600 mt-1 font-medium">
+                                   <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-gray-400">{info.type === 'POSTMAT' ? <PostmatIcon /> : <WarehouseIcon />}</span>
+                                      <h3 className={`font-bold text-lg ${isNext ? 'text-indigo-900' : 'text-gray-900'}`}>
+                                        {info.title}
+                                      </h3>
+                                   </div>
+                                   <div className="flex items-center text-sm text-gray-600 font-medium">
                                       <MapPinIcon />
-                                      {/* Integrated Address Display */}
-                                      <AddressDisplay lat={stop.warehouse.latitude} lon={stop.warehouse.longitude} />
+                                      {/* Prefer database address over geocoding */}
+                                      {info.subtitle ? (
+                                          <span className="ml-1 truncate max-w-[250px]" title={info.subtitle}>{info.subtitle}</span>
+                                      ) : (
+                                          <AddressDisplay lat={info.lat} lon={info.lon} />
+                                      )}
                                    </div>
                                  </div>
                                  
@@ -326,13 +385,13 @@ export default function CourierDashboard() {
 
                                {/* Dropdown Packages Section */}
                                <div className="space-y-2">
-                                 <PackageDropdown type="pickup" packages={stop.pickups} />
-                                 <PackageDropdown type="dropoff" packages={stop.dropoffs} />
+                                 <PackageDropdown type="pickup" packages={stop.pickups} stopType={info.type} />
+                                 <PackageDropdown type="dropoff" packages={stop.dropoffs} stopType={info.type} />
 
                                  {/* Helper if nothing to do */}
                                  {stop.pickups.length === 0 && stop.dropoffs.length === 0 && (
-                                    <div className="text-center py-3 bg-gray-50 rounded border border-gray-100 border-dashed">
-                                      <p className="text-sm text-gray-400 font-medium italic">No package exchange scheduled.</p>
+                                    <div className="text-center py-2 border-t border-gray-100 mt-2">
+                                      <p className="text-xs text-gray-400 font-medium italic">Stop & Go - No packages here.</p>
                                     </div>
                                  )}
                                </div>
