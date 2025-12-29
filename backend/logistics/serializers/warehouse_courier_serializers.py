@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from logistics.models import Route, RouteStop, RoutePackage, Warehouse
 from .serializers import WarehouseSimpleSerializer
+from postmats.serializers import PostmatSimpleSerializer
 from packages.models import Package
 
 class PackageSimpleSerializer(serializers.ModelSerializer):
@@ -11,6 +12,7 @@ class PackageSimpleSerializer(serializers.ModelSerializer):
 
 class CourierStopSerializer(serializers.ModelSerializer):
     warehouse = WarehouseSimpleSerializer(read_only=True)
+    postmat = PostmatSimpleSerializer(read_only=True)
     pickups = serializers.SerializerMethodField()
     dropoffs = serializers.SerializerMethodField()
     
@@ -18,7 +20,7 @@ class CourierStopSerializer(serializers.ModelSerializer):
         model = RouteStop
         fields = [
             'id', 'order', 'warehouse', 'distance_from_previous', 
-            'estimated_arrival', 'completed_at', 'pickups', 'dropoffs'
+            'estimated_arrival', 'completed_at', 'pickups', 'dropoffs', 'postmat'
         ]
         
     def get_pickups(self, obj):
