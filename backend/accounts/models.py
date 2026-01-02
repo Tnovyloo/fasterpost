@@ -11,7 +11,6 @@ from django.conf import settings
 
 import pyotp
 
-
 class ExpiringToken(Token):
     """Override for ExpiringToken"""
 
@@ -28,15 +27,15 @@ class ExpiringToken(Token):
             self.expires_at = now() + timedelta(days=expiry_days)
         super().save(*args, **kwargs)
 
-
 class MyAccountManager(BaseUserManager):
-    def create_user(self, email, username, password=None, o_auth=False):
+    def create_user(self, email, username, password=None, o_auth=False, **extra_fields):
         if not email and email is None:
             raise ValueError("User must provide an e-mail address.")
 
         user = self.model(
             email=self.normalize_email(email),
             username=self.normalize_email(username),
+            **extra_fields
         )
 
         if o_auth:
@@ -81,7 +80,6 @@ class MyAccountManager(BaseUserManager):
         user.save(using=self._db)
 
         return user
-
 
 class User(AbstractBaseUser):
     class Roles(models.TextChoices):
@@ -132,7 +130,6 @@ class User(AbstractBaseUser):
 
     class Meta:
         db_table = "auth_user"
-
 
 class EmailVerification(models.Model):
     user = models.OneToOneField(

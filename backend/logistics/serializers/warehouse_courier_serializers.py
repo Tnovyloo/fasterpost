@@ -24,24 +24,25 @@ class CourierStopSerializer(serializers.ModelSerializer):
         ]
         
     def get_pickups(self, obj):
-        # Find packages linked to this route that start at this stop
         route_packages = RoutePackage.objects.filter(pickup_stop=obj).select_related('package')
         packages = [rp.package for rp in route_packages]
         return PackageSimpleSerializer(packages, many=True).data
 
     def get_dropoffs(self, obj):
-        # Find packages linked to this route that end at this stop
         route_packages = RoutePackage.objects.filter(dropoff_stop=obj).select_related('package')
         packages = [rp.package for rp in route_packages]
         return PackageSimpleSerializer(packages, many=True).data
 
 class CourierRouteDetailSerializer(serializers.ModelSerializer):
     stops = CourierStopSerializer(many=True, read_only=True)
+    courier_name = serializers.CharField(source='courier.get_full_name', read_only=True)
+    courier_email = serializers.EmailField(source='courier.email', read_only=True)
     
     class Meta:
         model = Route
         fields = [
             'id', 'status', 'scheduled_date', 
             'total_distance', 'estimated_duration', 
-            'started_at', 'completed_at', 'stops'
+            'started_at', 'completed_at', 'stops',
+            'courier_name', 'courier_email'
         ]

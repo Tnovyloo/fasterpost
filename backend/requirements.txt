@@ -17,7 +17,7 @@ django-timezone-field==7.1
 djangorestframework==3.16.1
 dnspython==2.8.0
 drf-spectacular==0.28.0
-Faker==38.2.0
+Faker==40.1.0
 idna==3.11
 inflection==0.5.1
 jsonschema==4.25.1
