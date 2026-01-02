@@ -4,7 +4,15 @@ import time
 import requests
 from logistics.models import Warehouse
 
+class Zone(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=50)
+    warehouse = models.ForeignKey('logistics.Warehouse', on_delete=models.CASCADE, related_name='zones')
+    color = models.CharField(max_length=7, default='#3B82F6')
 
+    def __str__(self):
+        return f"{self.name} ({self.warehouse.city})"
+    
 class Postmat(models.Model):
     class PostmatStatus(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -15,6 +23,8 @@ class Postmat(models.Model):
     warehouse = models.ForeignKey(
         Warehouse, on_delete=models.CASCADE, related_name="postmats"
     )
+    zone = models.ForeignKey(Zone, on_delete=models.SET_NULL, null=True, blank=True, related_name="postmats")
+
     name = models.CharField(
         max_length=50
     )  # Zwiększyłem limit, bo nazwy mogą być dłuższe
@@ -37,16 +47,12 @@ class Postmat(models.Model):
 
     def save(self, *args, **kwargs):
         should_fetch = False
-
-        if self._state.adding:
-            if not self.address:
-                should_fetch = True
+        if self._state.adding and not self.address:
+            should_fetch = True
         else:
             try:
                 old = Postmat.objects.get(pk=self.pk)
-                if (
-                    old.latitude != self.latitude or old.longitude != self.longitude
-                ) and not self.address:
+                if (old.latitude != self.latitude or old.longitude != self.longitude) and not self.address:
                     should_fetch = True
             except Postmat.DoesNotExist:
                 pass
@@ -56,57 +62,42 @@ class Postmat(models.Model):
                 fetched_address = self._fetch_osm_address()
                 if fetched_address:
                     self.address = fetched_address
-                    time.sleep(1.1)
+                    time.sleep(1.1) 
             except Exception as e:
                 print(f"Warning: Geocoding failed for {self.name}: {e}")
 
         super().save(*args, **kwargs)
 
     def _fetch_osm_address(self) -> str:
-        """Pobiera adres z Nominatim API (OpenStreetMap)"""
         if not self.latitude or not self.longitude:
             return ""
-
         url = "https://nominatim.openstreetmap.org/reverse"
         params = {
             "format": "json",
             "lat": self.latitude,
             "lon": self.longitude,
             "zoom": 18,
-            "addressdetails": 1,
+            "addressdetails": 1
         }
         headers = {
-            # WAŻNE: Nominatim wymaga unikalnego User-Agent
-            "User-Agent": "LogisticAppDemo/1.0 (contact@example.com)",
-            "Accept-Language": "pl",
+            "User-Agent": "LogisticAppDemo/1.0", 
+            "Accept-Language": "pl"
         }
-
         try:
             resp = requests.get(url, params=params, headers=headers, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
-                addr = data.get("address", {})
-
-                # Budowanie czytelnego adresu
-                street = addr.get("road", "") or addr.get("pedestrian", "")
-                number = addr.get("house_number", "")
-                city = (
-                    addr.get("city", "")
-                    or addr.get("town", "")
-                    or addr.get("village", "")
-                )
-
+                addr = data.get('address', {})
+                street = addr.get('road', '') or addr.get('pedestrian', '')
+                number = addr.get('house_number', '')
+                city = addr.get('city', '') or addr.get('town', '') or addr.get('village', '')
                 parts = []
-                if street:
-                    parts.append(f"{street} {number}".strip())
-                if city:
-                    parts.append(city)
-
-                return ", ".join(parts) if parts else data.get("display_name", "")[:255]
+                if street: parts.append(f"{street} {number}".strip())
+                if city: parts.append(city)
+                return ", ".join(parts) if parts else data.get('display_name', '')[:255]
         except Exception:
             return ""
         return ""
-
 
 class Stash(models.Model):
     class StashSize(models.TextChoices):

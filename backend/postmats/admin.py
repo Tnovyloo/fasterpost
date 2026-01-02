@@ -5,6 +5,8 @@ from .views.views_admin import (
     StashAdminViewSet,
 )
 
+from .views.views_routing import LocalRouteViewSet
+
 from django.urls import path, include
 
 from .models import Postmat, Stash
@@ -56,6 +58,7 @@ class StashAdmin(admin.ModelAdmin):
 router = DefaultRouter()
 router.register(r"postmats", PostmatAdminViewSet, basename="admin-postmats")
 router.register(r"stashes", StashAdminViewSet, basename="admin-stashes")
+router.register(r"local-routes", LocalRouteViewSet, basename="admin-local-routes")
 
 urlpatterns = [
     path("", include(router.urls)),

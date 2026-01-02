@@ -47,6 +47,7 @@ class UserAdmin(BaseUserAdmin):
         "email",
         "username",
         "full_name_display",
+        "warehouse_id",
         "role",
         "is_active",
         "is_staff",
