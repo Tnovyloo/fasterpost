@@ -8,6 +8,10 @@ import math
 class LocalRoutingService:
     """
     Handles Last Mile Delivery (Warehouse -> Postmats).
+    Logic:
+    1. Group packages by Zone (Static Territories).
+    2. Check Stash Availability (Allocation Phase).
+    3. Generate TSP Route for Zone Courier.
     """
     
     AVG_SPEED_KM_MIN = 0.5  # Slower in city (30km/h)
@@ -16,8 +20,9 @@ class LocalRoutingService:
     @transaction.atomic
     def generate_local_routes(self, target_date: date, warehouse_id: str):
         from accounts.models import User
-        from logistics.models import Route, Warehouse
+        from logistics.models import Route, Warehouse, RouteStop, RoutePackage
         from postmats.models import Zone
+        from packages.models import Actualization
         
         try:
             warehouse = Warehouse.objects.get(id=warehouse_id)
@@ -32,6 +37,7 @@ class LocalRoutingService:
 
         # 1. Get packages waiting at this warehouse for local delivery
         local_packages = self._get_local_packages(warehouse)
+        
         if not local_packages:
             print(f"No local packages pending at {warehouse.city}.")
             return []
@@ -43,15 +49,28 @@ class LocalRoutingService:
             if zone:
                 packages_by_zone[zone.id].append(pkg)
             else:
-                # Fallback: if postmat has no zone, maybe auto-assign or skip
                 print(f"Skipping package {pkg.id}: Postmat {pkg.destination_postmat.name} has no zone.")
 
         created_routes = []
         
-        # 2. Get available drivers (filtered by warehouse ideally)
-        couriers = list(User.objects.filter(role='courier', is_active=True)) 
-        # In a real app, verify courier.warehouse_id == warehouse.id
+        # 2. Get available drivers STRICTLY for this warehouse
+        # Fix: Ensure we only fetch couriers assigned to this specific warehouse
+        couriers = list(User.objects.filter(
+            role='courier', 
+            is_active=True,
+            warehouse=warehouse  # <--- Strict Filter
+        ).order_by('id'))
         
+        if not couriers:
+            print(f"No local couriers available assigned to {warehouse.city}!")
+            # In debug mode, we might want to fallback, but for correctness we should probably stop or warn
+            if settings.DEBUG:
+                 print("DEBUG: Falling back to ANY local courier because of debug mode.")
+                 couriers = list(User.objects.filter(role='courier', is_active=True).order_by('id'))
+            
+            if not couriers:
+                return []
+
         courier_idx = 0
 
         for zone in zones:
@@ -63,29 +82,23 @@ class LocalRoutingService:
             allocated_pkgs = self._allocate_stashes(zone_pkgs)
             
             if not allocated_pkgs:
-                print(f"Zone {zone.name}: No stashes available for {len(zone_pkgs)} packages. Holding in warehouse.")
+                print(f"Zone {zone.name}: No stashes available for {len(zone_pkgs)} packages.")
                 continue
 
-            # Assign Driver (Round-robin for simulation)
-            if not couriers:
-                print("No couriers available!")
-                break
-
+            # Assign Driver
             driver = couriers[courier_idx % len(couriers)]
             courier_idx += 1
 
             # Build Route (TSP)
             route = self._create_zone_route(driver, warehouse, allocated_pkgs, target_date)
             created_routes.append(route)
-            print(f"Created local route {route.id} for Zone {zone.name} ({len(allocated_pkgs)} pkgs)")
+            print(f"Created local route {route.id} for Zone {zone.name} ({len(allocated_pkgs)} pkgs) - Driver: {driver.email}")
 
         return created_routes
 
     def _get_local_packages(self, warehouse):
         from packages.models import Actualization
         
-        # Packages physically AT this warehouse
-        # AND destined for a postmat linked to this warehouse
         latest_acts = Actualization.objects.filter(
             status='in_warehouse', 
             warehouse_id=warehouse.id
@@ -94,7 +107,6 @@ class LocalRoutingService:
         candidates = []
         for act in latest_acts:
             pkg = act.package_id
-            # Check if destination postmat belongs to this warehouse
             if pkg.destination_postmat.warehouse_id == warehouse.id:
                 candidates.append(pkg)
         
@@ -107,19 +119,12 @@ class LocalRoutingService:
         """
         approved = []
         
-        # Group packages by destination postmat to check capacity efficiently
         by_postmat = defaultdict(list)
         for p in packages: by_postmat[p.destination_postmat].append(p)
         
         for pm, pkgs in by_postmat.items():
-            # Get available stashes (Not occupied AND not reserved)
-            # We treat 'reserved_until' as a block
-            now = timezone.now()
-            
-            # Fetch all empty stashes for this postmat
             empty_stashes = list(pm.stashes.filter(is_empty=True, reserved_until__isnull=True))
             
-            # Separate by size
             small_stashes = [s for s in empty_stashes if s.size == 'small']
             medium_stashes = [s for s in empty_stashes if s.size == 'medium']
             large_stashes = [s for s in empty_stashes if s.size == 'large']
@@ -127,40 +132,28 @@ class LocalRoutingService:
             for p in pkgs:
                 selected_stash = None
                 
-                # Logic: Exact fit -> Upgrade fit
                 if p.size == 'small':
                     if small_stashes: selected_stash = small_stashes.pop()
                     elif medium_stashes: selected_stash = medium_stashes.pop()
                     elif large_stashes: selected_stash = large_stashes.pop()
-                
                 elif p.size == 'medium':
                     if medium_stashes: selected_stash = medium_stashes.pop()
                     elif large_stashes: selected_stash = large_stashes.pop()
-                    
                 elif p.size == 'large':
                     if large_stashes: selected_stash = large_stashes.pop()
                 
                 if selected_stash:
-                    # Reserve it immediately in memory (and DB ideally) to prevent double allocation
-                    # We will persist this reservation when creating the route, 
-                    # but for this calculation loop, popping from the list is enough safety.
-                    
-                    # Store the stash selection on the package object temporarily for the route creator
                     p._reserved_stash = selected_stash
                     approved.append(p)
-                else:
-                    # No stash found - package stays in warehouse
-                    pass
                     
         return approved
 
     def _create_zone_route(self, driver, warehouse, packages, date):
         from logistics.models import Route, RouteStop, RoutePackage
         
-        # 1. Identify active postmats
         active_postmats = list({p.destination_postmat for p in packages})
         
-        # 2. Simple TSP (Nearest Neighbor)
+        # Simple TSP (Nearest Neighbor)
         ordered_stops = []
         current_loc = {'lat': warehouse.latitude, 'lon': warehouse.longitude}
         remaining = list(active_postmats)
@@ -168,7 +161,6 @@ class LocalRoutingService:
         total_dist = 0.0
         
         while remaining:
-            # Find nearest postmat
             nearest = min(remaining, key=lambda pm: math.sqrt((pm.latitude-current_loc['lat'])**2 + (pm.longitude-current_loc['lon'])**2))
             
             dist = self._haversine(current_loc['lat'], current_loc['lon'], nearest.latitude, nearest.longitude)
@@ -178,11 +170,10 @@ class LocalRoutingService:
             current_loc = {'lat': nearest.latitude, 'lon': nearest.longitude}
             remaining.remove(nearest)
             
-        # Add return to warehouse
         dist_home = self._haversine(current_loc['lat'], current_loc['lon'], warehouse.latitude, warehouse.longitude)
         total_dist += dist_home
         
-        # 3. Create Route
+        # Create Route
         route = Route.objects.create(
             courier=driver,
             scheduled_date=date,
@@ -192,9 +183,7 @@ class LocalRoutingService:
             estimated_duration=int((total_dist / self.AVG_SPEED_KM_MIN) + (len(ordered_stops) * self.STOP_DURATION_MINUTES))
         )
         
-        # 4. Create Stops
-        
-        # Stop 0: Warehouse (Load)
+        # Create Stops
         start_stop = RouteStop.objects.create(route=route, warehouse=warehouse, order=0, distance_from_previous=0)
         
         current_order = 1
@@ -208,7 +197,7 @@ class LocalRoutingService:
         # Stop N: Warehouse (Return)
         RouteStop.objects.create(route=route, warehouse=warehouse, order=current_order, distance_from_previous=round(dist_home, 2))
         
-        # 5. Link Packages & Apply Reservations
+        # Link Packages & Apply Reservations
         for pkg in packages:
             dest_pm_id = pkg.destination_postmat.id
             dropoff_stop = pm_stop_map.get(dest_pm_id)
@@ -221,12 +210,11 @@ class LocalRoutingService:
                     dropoff_stop=dropoff_stop
                 )
                 
-                # PERSIST RESERVATION
+                # Persist Stash Reservation
                 if hasattr(pkg, '_reserved_stash'):
                     stash = pkg._reserved_stash
-                    # Reserve for 24h or until delivery
                     stash.reserved_until = timezone.now() + timezone.timedelta(hours=24)
-                    stash.package = pkg # Optional: link package to stash if model supports it
+                    stash.package = pkg 
                     stash.save()
 
         return route
