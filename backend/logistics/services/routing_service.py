@@ -46,7 +46,6 @@ class RoutingService:
         assigned_package_ids = set()
 
         for hub_id in hub_ids:
-            # 1. Prepare Packages
             hub_packages = packages_at_warehouse[hub_id]
             hub_packages.sort(key=lambda p: str(p.destination_postmat.warehouse_id))
             
@@ -55,27 +54,22 @@ class RoutingService:
             if not available_packages:
                 continue
 
-            # 2. Count Available Drivers for THIS Hub
-            if settings.DEBUG:
-                # In DEBUG: Infinite capacity (allow 1 driver to handle 100 routes for testing)
-                max_hub_routes = float('inf')
-            else:
-                # In PROD: Strict count. Only drivers belonging to this warehouse can start here.
-                # Assuming User model has 'warehouse_id' field
-                drivers_at_hub = [c for c in couriers if str(getattr(c, 'warehouse_id', '')) == str(hub_id)]
-                max_hub_routes = len(drivers_at_hub)
-                
-                if max_hub_routes == 0:
-                    print(f"WARNING: No drivers found assigned to Hub {hub_id}. Skipping packages.")
-                    continue
-
-            # 3. Generate Routes
-            routes_generated_this_hub = 0
+            # Driver Capacity Check
+            # STRICT RULE: Only count drivers belonging to THIS hub
+            # We removed the DEBUG override. You must have drivers to move packages.
+            drivers_at_hub = [c for c in couriers if str(getattr(c, 'warehouse_id', '')) == str(hub_id)]
+            max_hub_routes = len(drivers_at_hub)
             
+            if not drivers_at_hub:
+                print(f"WARNING: No drivers found assigned to Hub {hub_id}. {len(available_packages)} packages will remain in warehouse.")
+                continue
+
+            routes_generated_this_hub = 0
+
             while available_packages:
-                # PRODUCTION LIMIT: Stop if we ran out of drivers for this hub
+                # Stop if we don't have free drivers left
                 if routes_generated_this_hub >= max_hub_routes:
-                    print(f"DEBUG: Max routes ({max_hub_routes}) reached for hub {hub_id}")
+                    print(f"DEBUG: Capacity reached for hub {hub_id}. Drivers: {max_hub_routes}, Routes: {routes_generated_this_hub}")
                     break 
 
                 chunk = available_packages[:vehicle_capacity]
@@ -90,6 +84,7 @@ class RoutingService:
                 )
                 
                 if plan and plan['assignments']:
+                    plan['start_hub_id'] = hub_id
                     route_plans.append(plan)
                     routes_generated_this_hub += 1
                     
@@ -126,15 +121,7 @@ class RoutingService:
                     results.append((pkg, act.warehouse_id))
         return results
 
-    def _build_optimized_tour(
-        self, 
-        hub_packages: List, 
-        all_packages_map: Dict, 
-        assigned_ids: Set, 
-        vehicle_capacity: int,
-        start_hub_id: str
-    ) -> Optional[Dict]:
-        
+    def _build_optimized_tour(self, hub_packages, all_packages_map, assigned_ids, vehicle_capacity, start_hub_id):
         if not hub_packages: return None
 
         start_wh = self.warehouse_map.get(str(start_hub_id))
@@ -182,7 +169,6 @@ class RoutingService:
                     
                     if total_time_min + drive_time + self.STOP_DURATION_MINUTES + drive_home <= self.MAX_WORK_DAY_MINUTES:
                         can_visit = True
-                        
                         total_distance_km += leg_dist
                         total_time_min += (drive_time + self.STOP_DURATION_MINUTES)
                         stops_sequence.extend(path_leg[1:])
@@ -191,20 +177,13 @@ class RoutingService:
             
             if not can_visit:
                 stranded_pkgs = [p for p, t in candidates.items() if t.id == best_next.id]
-                
-                transfer_hub = self._find_best_transfer_hub(
-                    current_node=current_node,
-                    final_dest=best_next,
-                    start_wh=start_wh,
-                    current_time_used=total_time_min
-                )
+                transfer_hub = self._find_best_transfer_hub(current_node, best_next, start_wh, total_time_min)
                 
                 if transfer_hub and str(transfer_hub.id) != str(start_wh.id):
-                    for p in stranded_pkgs:
-                        candidates[p] = transfer_hub
+                    for p in stranded_pkgs: candidates[p] = transfer_hub
                     remaining_dests = list(get_remaining_dests())
                 else:
-                    for p in stranded_pkgs:
+                    for p in stranded_pkgs: 
                         del candidates[p]
                         if p in pkg_pickup_locs: del pkg_pickup_locs[p]
                     remaining_dests = list(get_remaining_dests())
@@ -233,7 +212,6 @@ class RoutingService:
                 return None
 
         final_assignment = []
-        
         stop_indices = defaultdict(list)
         for idx, wh in enumerate(stops_sequence):
             stop_indices[str(wh.id)].append(idx)
@@ -257,8 +235,7 @@ class RoutingService:
                 if valid_flow:
                     final_assignment.append((pkg, source_wh, target_wh))
 
-        if not final_assignment:
-            return None
+        if not final_assignment: return None
 
         return {
             'assignments': final_assignment,
@@ -274,10 +251,8 @@ class RoutingService:
         
         for hub in self.all_warehouses:
             if hub.id == current_node.id or hub.id == final_dest.id: continue
-            
             hub_dist = self.distance_service.get_distance(str(hub.id), str(final_dest.id))
             progress = current_dist - hub_dist
-            
             if progress <= 0: continue
             
             if progress > best_progress:
@@ -287,13 +262,10 @@ class RoutingService:
                 if path_to and path_home:
                     dist_out = self._calculate_path_distance(path_to)
                     dist_back = self._calculate_path_distance(path_home)
-                    
                     time_cost = (dist_out + dist_back) / self.AVG_SPEED_KM_MIN + self.STOP_DURATION_MINUTES
-                    
                     if current_time_used + time_cost <= self.MAX_WORK_DAY_MINUTES:
                         best_progress = progress
                         best_hub = hub
-                        
         return best_hub
 
     def _calculate_path_distance(self, nodes):
@@ -307,20 +279,16 @@ class RoutingService:
 
     def _find_shortest_graph_path(self, start_wh, end_wh) -> List:
         if start_wh.id == end_wh.id: return [start_wh]
-        
         queue = deque([(start_wh, [start_wh])])
         visited = {str(start_wh.id)}
-        
         while queue:
             current, path = queue.popleft()
             if str(current.id) == str(end_wh.id): return path
-            
             conn_ids = []
             if current.connections:
                 first = current.connections[0]
                 if isinstance(first, dict): conn_ids = [str(c.get('id')) for c in current.connections if c.get('id')]
                 elif isinstance(first, str): conn_ids = [str(c) for c in current.connections]
-            
             for cid in conn_ids:
                 if cid not in visited:
                     visited.add(cid)
@@ -331,31 +299,32 @@ class RoutingService:
 
     def _assign_to_couriers(self, plans, couriers):
         assignments = []
-        courier_loads = {c.id: 0.0 for c in couriers}
+        busy_courier_ids = set()
+        
+        # Sort plans by distance, so we assign the hardest routes first
         sorted_plans = sorted(plans, key=lambda p: p['total_distance'], reverse=True)
         
-        # Round-robin cycle for DEBUG mode
-        courier_cycle = []
-        while len(courier_cycle) < len(plans): courier_cycle.extend(couriers)
-        
         for i, plan in enumerate(sorted_plans):
-            start_wh_id = str(plan['stops'][0].id)
+            start_hub_id = plan.get('start_hub_id')
+            if not start_hub_id:
+                start_hub_id = str(plan['stops'][0].id)
             
-            if settings.DEBUG:
-                # In Debug: Assign broadly to available test users
-                best_courier = courier_cycle[i]
-            else:
-                # In Production: Strict Hub Assignment
-                candidates = [c for c in couriers if str(getattr(c, 'warehouse_id', '')) == start_wh_id]
-                if not candidates:
-                    print(f"CRITICAL: Route generated for {plan['stops'][0].city} but no drivers found during assignment.")
-                    continue
-                
-                # Load Balancing among valid candidates
-                best_courier = min(candidates, key=lambda c: courier_loads[c.id])
+            # STRICT ASSIGNMENT: Only drivers from this hub
+            candidates = [c for c in couriers if str(getattr(c, 'warehouse_id', '')) == start_hub_id]
             
+            # Filter out drivers already assigned today
+            available_candidates = [c for c in candidates if c.id not in busy_courier_ids]
+            
+            if not available_candidates:
+                print(f"CRITICAL: No available driver for route at Hub {start_hub_id}. Route skipped.")
+                continue
+
+            # Simple Load Balancing (or just pick first available)
+            # Since we only do 1 route per driver now, load balancing is moot.
+            best_courier = available_candidates[0]
+
+            busy_courier_ids.add(best_courier.id)
             assignments.append((best_courier, plan))
-            courier_loads[best_courier.id] += plan['total_distance']
             
         return assignments
 

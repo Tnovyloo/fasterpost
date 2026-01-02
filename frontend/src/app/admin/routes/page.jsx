@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import Header from "@/app/components/Header";
 import api from "@/axios/api";
 
-// Dynamic import for Map to avoid SSR issues
 const RouteNetworkMap = dynamic(() => import("@/app/components/RouteNetworkMap"), {
   ssr: false,
   loading: () => (
@@ -20,18 +19,15 @@ export default function AdminRoutesPage() {
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, planned: 0, completed: 0, total_km: 0 });
-  
-  // Search State
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Generation State
+  const [selectedHubId, setSelectedHubId] = useState(null); 
   const [isGenerating, setIsGenerating] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const [routesRes, warehousesRes] = await Promise.all([
-        api.get("/api/admin/routes/?page_size=2000"), // Ensure we get enough data
+        api.get("/api/admin/routes/?page_size=2000"), 
         api.get("/api/admin/warehouses/?page_size=1000")
       ]);
       
@@ -39,7 +35,6 @@ export default function AdminRoutesPage() {
       setRoutes(routeData);
       setWarehouses(warehousesRes.data.results || warehousesRes.data || []);
 
-      // Calc Stats
       const newStats = routeData.reduce((acc, r) => {
         if (r.status === 'in_progress') acc.active += 1;
         if (r.status === 'planned') acc.planned += 1;
@@ -60,16 +55,32 @@ export default function AdminRoutesPage() {
     fetchData();
   }, []);
 
-  // Filter Logic
+  const handleHubSelect = (id) => {
+    setSelectedHubId(id);
+    setSearchTerm("");
+  };
+
   const filteredRoutes = useMemo(() => {
-    if (!searchTerm) return routes;
-    const term = searchTerm.toLowerCase();
-    return routes.filter(r => 
-        (r.courier_name && r.courier_name.toLowerCase().includes(term)) || 
-        (r.courier_email && r.courier_email.toLowerCase().includes(term)) ||
-        (r.id && r.id.toLowerCase().includes(term))
-    );
-  }, [routes, searchTerm]);
+    let result = routes;
+
+    if (selectedHubId) {
+        result = result.filter(r => {
+            if (r.route_type !== 'last_mile') return false;
+            const firstStop = r.stops?.[0];
+            return firstStop?.warehouse?.id === selectedHubId;
+        });
+    }
+
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        result = result.filter(r => 
+            (r.courier_name && r.courier_name.toLowerCase().includes(term)) || 
+            (r.courier_email && r.courier_email.toLowerCase().includes(term)) ||
+            (r.id && r.id.toLowerCase().includes(term))
+        );
+    }
+    return result;
+  }, [routes, searchTerm, selectedHubId]);
 
   const handleGenerateGlobal = async () => {
     if(!confirm("Generate National Line Haul routes? This analyzes all pending warehouse-to-warehouse packages.")) return;
@@ -85,8 +96,54 @@ export default function AdminRoutesPage() {
     }
   };
 
+  const handleGenerateAllLocal = async () => {
+    if(!confirm("Generate Local Routes for ALL warehouses? This might take a moment.")) return;
+    setIsGenerating(true);
+    try {
+        const res = await api.post("/api/admin/local-routes/generate-all/");
+        alert(`Success! Created ${res.data.total_routes_created} local routes across Poland.`);
+        fetchData();
+    } catch(err) {
+        alert("Bulk generation failed: " + (err.response?.data?.error || err.message));
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateLocal = async (warehouseId) => {
+    if(!confirm("Generate Local Last-Mile routes for this hub?")) return;
+    try {
+        const res = await api.post("/api/admin/local-routes/generate/", { 
+            warehouse_id: warehouseId,
+            date: new Date().toISOString().split('T')[0] 
+        });
+        
+        if (res.data.routes_created > 0) {
+            alert(`Success! Created ${res.data.routes_created} local routes.`);
+            fetchData();
+            setSelectedHubId(warehouseId);
+        } else {
+            alert("No routes created. Check if you have pending local packages and available couriers.");
+        }
+    } catch(err) {
+        alert("Local generation failed: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  // NEW: Handle Clearing Hub Routes
+  const handleClearHubRoutes = async (warehouseId) => {
+    if(!confirm("Clear ALL PLANNED local routes for this hub?")) return;
+    try {
+        await api.post("/api/admin/local-routes/clear-hub/", { warehouse_id: warehouseId });
+        alert("Hub routes cleared.");
+        fetchData();
+    } catch(err) {
+        alert("Clear failed: " + (err.response?.data?.error || err.message));
+    }
+  };
+
   const handleClearRoutes = async () => {
-    if(!confirm("⚠️ DANGER: Delete ALL routes? This cannot be undone.")) return;
+    if(!confirm("⚠️ Clear ALL PLANNED routes in the system? (Active/Completed routes are safe)")) return;
     try {
         await api.delete("/api/admin/routes/clear/");
         fetchData();
@@ -94,6 +151,8 @@ export default function AdminRoutesPage() {
         alert("Failed to clear routes");
     }
   }
+
+  const selectedHubName = selectedHubId ? warehouses.find(w => w.id === selectedHubId)?.city : null;
 
   return (
     <div className="min-h-screen bg-gray-50 text-black">
@@ -107,9 +166,8 @@ export default function AdminRoutesPage() {
                 <p className="text-gray-500 mt-1">Monitor line haul and last mile operations</p>
             </div>
             
-            <div className="flex items-center gap-4 w-full md:w-auto">
-                {/* SEARCH BAR */}
-                <div className="relative w-full md:w-64">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <div className="relative w-full sm:w-64">
                     <input 
                         type="text" 
                         placeholder="Search courier..." 
@@ -120,19 +178,27 @@ export default function AdminRoutesPage() {
                     <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                     <button 
                         onClick={handleClearRoutes}
-                        className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition text-sm font-bold whitespace-nowrap"
+                        className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition text-sm font-bold whitespace-nowrap flex-1 sm:flex-none"
                     >
-                        Reset
+                        Reset Plans
+                    </button>
+                    {/* NEW: Global Local Gen */}
+                    <button 
+                        onClick={handleGenerateAllLocal}
+                        disabled={isGenerating}
+                        className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition font-bold shadow-md flex items-center gap-2 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-none"
+                    >
+                        {isGenerating ? "..." : "⚡ All Local"}
                     </button>
                     <button 
                         onClick={handleGenerateGlobal}
                         disabled={isGenerating}
-                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-bold shadow-md flex items-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-bold shadow-md flex items-center gap-2 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-none"
                     >
-                        {isGenerating ? "Computing..." : "⚡ Generate Global"}
+                        {isGenerating ? "..." : "⚡ Global Line"}
                     </button>
                 </div>
             </div>
@@ -148,25 +214,44 @@ export default function AdminRoutesPage() {
 
         {/* MAIN VISUALIZATION */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[800px]">
-            {/* MAP - Takes up 2/3 */}
             <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-                    <h2 className="font-bold text-gray-700">Live Network Map ({filteredRoutes.length} Routes)</h2>
+                    <h2 className="font-bold text-gray-700 flex items-center gap-2">
+                        Live Network Map 
+                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-normal">
+                            {filteredRoutes.length} Routes Visible
+                        </span>
+                    </h2>
                     <div className="flex gap-4 text-xs font-medium">
                         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-indigo-500"></span> Line Haul</span>
-                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-indigo-300"></span> Last Mile</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-pink-500"></span> Last Mile</span>
                     </div>
                 </div>
                 <div className="flex-1 relative z-0">
-                    <RouteNetworkMap routes={filteredRoutes} warehouses={warehouses} />
+                    <RouteNetworkMap 
+                        routes={filteredRoutes} 
+                        warehouses={warehouses}
+                        onGenerateLocal={handleGenerateLocal} 
+                        onClearHub={handleClearHubRoutes} // Pass new handler
+                        onSelectHub={handleHubSelect}
+                        selectedHubId={selectedHubId}
+                    />
                 </div>
             </div>
 
-            {/* SIDEBAR LIST - Takes up 1/3 */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-                    <h2 className="font-bold text-gray-700">Manifests</h2>
-                    <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">{filteredRoutes.length}</span>
+                    <h2 className="font-bold text-gray-700">
+                        {selectedHubId ? `Local Routes: ${selectedHubName}` : "All Manifests"}
+                    </h2>
+                    {selectedHubId && (
+                        <button 
+                            onClick={() => setSelectedHubId(null)}
+                            className="text-xs text-red-600 font-bold hover:underline"
+                        >
+                            Clear Filter ✕
+                        </button>
+                    )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
                     {filteredRoutes.length === 0 ? (
@@ -187,7 +272,7 @@ export default function AdminRoutesPage() {
   );
 }
 
-// Sub-components
+// ... StatCard and RouteListItem remain same ...
 function StatCard({ label, value, color }) {
     const colors = {
         blue: "bg-blue-50 text-blue-700 border-blue-100",
@@ -217,7 +302,7 @@ function RouteListItem({ route }) {
     return (
         <div className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition cursor-pointer group">
             <div className="flex justify-between items-start mb-1">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${isLineHaul ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-orange-50 text-orange-700 border-orange-100'}`}>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${isLineHaul ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}>
                     {isLineHaul ? 'LINE HAUL' : 'LAST MILE'}
                 </span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${statusColors[route.status]}`}>

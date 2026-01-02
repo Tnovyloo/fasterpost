@@ -35,14 +35,14 @@ class CourierStopSerializer(serializers.ModelSerializer):
 
 class CourierRouteDetailSerializer(serializers.ModelSerializer):
     stops = CourierStopSerializer(many=True, read_only=True)
-    courier_name = serializers.CharField(source='courier.get_full_name', read_only=True)
+    courier_name = serializers.CharField(source='courier.full_name', read_only=True)
     courier_email = serializers.EmailField(source='courier.email', read_only=True)
     
     class Meta:
         model = Route
         fields = [
             'id', 'status', 'scheduled_date', 
-            'total_distance', 'estimated_duration', 
+            'total_distance', 'estimated_duration', 'route_type',
             'started_at', 'completed_at', 'stops',
             'courier_name', 'courier_email'
         ]

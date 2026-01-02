@@ -7,25 +7,31 @@ from django.db.models import Count, Q
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
+from logistics.serializers.warehouse_courier_serializers import CourierRouteDetailSerializer
 from logistics.models import Route, RouteStop
 from logistics.serializers.admin_serializers import RouteListSerializer, RouteDetailSerializer
 from logistics.services.routing_service import RoutingService
 from accounts.permissions import IsAdmin
 
 @extend_schema(tags=["Admin - Routing"])
-class RouteAdminViewSet(viewsets.ReadOnlyModelViewSet):
+class RouteAdminViewSet(viewsets.ModelViewSet):
     """Admin management of warehouse routes"""
-    queryset = Route.objects.all()
+    
+    # We use the detailed serializer to ensure the frontend map works
+    serializer_class = CourierRouteDetailSerializer 
     permission_classes = [IsAuthenticated, IsAdmin]
-    
-    def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return RouteDetailSerializer
-        return RouteListSerializer
-    
+
     def get_queryset(self):
-        qs = Route.objects.select_related('courier').prefetch_related('stops', 'route_packages')
+        # We keep the robust prefetching for the map visualization
+        # FIX: Use select_related for courier (ForeignKey) so names are joined in the main query
+        qs = Route.objects.select_related('courier').prefetch_related(
+            'stops',
+            'stops__warehouse',
+            'stops__postmat',
+            'stops__postmat__zone',
+        )
         
+        # Add filtering from the snippet
         status_filter = self.request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
@@ -35,32 +41,37 @@ class RouteAdminViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(scheduled_date=date_filter)
         
         return qs.order_by('-scheduled_date', '-created_at')
-    
+
     @extend_schema(
         summary="Generate routes for date",
         request=None,
         parameters=[
             OpenApiParameter('date', OpenApiTypes.DATE, description="Date (YYYY-MM-DD)"),
             OpenApiParameter('max_stops', OpenApiTypes.INT, description="Max stops per route"),
+            OpenApiParameter('vehicle_capacity', OpenApiTypes.INT, description="Vehicle capacity"),
         ],
-        responses={201: RouteListSerializer(many=True)}
+        responses={201: CourierRouteDetailSerializer(many=True)}
     )
     @action(detail=False, methods=['post'])
     def generate(self, request):
         """Generate routes for a specific date"""
         target_date_str = request.data.get('date') or request.query_params.get('date')
-        max_stops = int(request.data.get('max_stops', 6))
+        max_stops = int(request.data.get('max_stops', 15))
+        vehicle_capacity = int(request.data.get('vehicle_capacity', 50))
         
         if target_date_str:
-            target_date = date.fromisoformat(target_date_str)
+            try:
+                target_date = date.fromisoformat(target_date_str)
+            except ValueError:
+                return Response({'error': 'Invalid date format'}, status=400)
         else:
             target_date = date.today()
         
         try:
             service = RoutingService()
-            routes = service.generate_routes_for_date(target_date, max_stops)
+            routes = service.generate_routes_for_date(target_date, max_stops, vehicle_capacity)
             
-            serializer = RouteListSerializer(routes, many=True)
+            serializer = self.get_serializer(routes, many=True)
             return Response({
                 'success': True,
                 'date': target_date,
@@ -73,13 +84,26 @@ class RouteAdminViewSet(viewsets.ReadOnlyModelViewSet):
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
-    
+
+    @extend_schema(summary="Clear only PLANNED routes")
+    @action(detail=False, methods=['delete'])
+    def clear(self, request):
+        """
+        Safe Delete: Only deletes routes that haven't started yet (status='planned').
+        Preserves history (completed/cancelled/in_progress).
+        """
+        deleted, _ = Route.objects.filter(status='planned').delete()
+        return Response(
+            {'message': f'Successfully cleared {deleted} planned items (routes & dependencies).'}, 
+            status=status.HTTP_200_OK
+        )
+
     @extend_schema(
         summary="Get routing statistics",
         responses={200: {
             'type': 'object',
             'properties': {
-                'total_routes': {'type': 'integer'},
+                'total': {'type': 'integer'},
                 'planned': {'type': 'integer'},
                 'in_progress': {'type': 'integer'},
                 'completed': {'type': 'integer'},
