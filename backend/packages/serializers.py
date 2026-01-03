@@ -382,14 +382,13 @@ from accounts.models import User
 
 
 class PostmatMinimalSerializer(serializers.ModelSerializer):
-    warehouse_name = serializers.CharField(source="warehouse_id.name", read_only=True)
-
+    warehouse_city = serializers.CharField(source="warehouse_id.city", read_only=True)
     class Meta:
         model = Postmat
         fields = [
             "id",
             "name",
-            "warehouse_name",
+            "warehouse_city",
             "status",
             "latitude",
             "longitude",
@@ -405,7 +404,7 @@ class UserMinimalSerializer(serializers.ModelSerializer):
 
 class ActualizationSerializer(serializers.ModelSerializer):
     courier = UserMinimalSerializer(source="courier_id", read_only=True)
-    warehouse_name = serializers.CharField(source="warehouse_id.name", read_only=True)
+    warehouse_city = serializers.CharField(source="warehouse_id.city", read_only=True)
 
     class Meta:
         model = Actualization
@@ -413,11 +412,10 @@ class ActualizationSerializer(serializers.ModelSerializer):
             "id",
             "status",
             "courier",
-            "warehouse_name",
+            "warehouse_city",
             "route_remaining",
             "created_at",
         ]
-
 
 class PackageAdminSerializer(serializers.ModelSerializer):
     origin_postmat_detail = PostmatMinimalSerializer(
@@ -470,7 +468,7 @@ class PackageAdminSerializer(serializers.ModelSerializer):
 
 class ActualizationDetailSerializer(serializers.ModelSerializer):
     courier_name = serializers.SerializerMethodField()
-    warehouse_name = serializers.SerializerMethodField()
+    warehouse_city = serializers.SerializerMethodField()
 
     class Meta:
         model = Actualization
@@ -479,15 +477,15 @@ class ActualizationDetailSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
             "courier_name",
-            "warehouse_name",
+            "warehouse_city",
             "route_remaining",
         ]
 
     def get_courier_name(self, obj):
         return obj.courier_id.username if obj.courier_id else None
 
-    def get_warehouse_name(self, obj):
-        return obj.warehouse_id.name if obj.warehouse_id else None
+    def get_warehouse_city(self, obj):
+        return obj.warehouse_id.city if obj.warehouse_id else None
 
 
 class PaymentDetailSerializer(serializers.ModelSerializer):
@@ -549,3 +547,49 @@ class SenderPackageDetailSerializer(serializers.ModelSerializer):
     def get_latest_status(self, obj):
         latest = obj.actualizations.first()
         return latest.status if latest else "created"
+    
+class PublicTrackingActualizationSerializer(serializers.ModelSerializer):
+    location = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    class Meta:
+        model = Actualization
+        fields = ['status', 'status_display', 'created_at', 'location']
+
+    def get_location(self, obj):
+        # Determine location based on status and foreign keys
+        if obj.warehouse_id:
+            return f"In warehouse {obj.warehouse_id.city}"
+        
+        if obj.status == 'placed_in_stash':
+            # It's at the destination postmat
+            return f"Placed in postmat {obj.package_id.destination_postmat.name}"
+            
+        if obj.status == 'created':
+             return "Registered in System"
+             
+        if obj.status == 'in_transit':
+            return "In transit (Courier)"
+        
+        if obj.status == 'delivered':
+            return f"Delivered to postmat {obj.package_id.destination_postmat.name}"
+        
+        if obj.status == 'picked_up':
+            return f"Picked up from postmat {obj.package_id.destination_postmat.name}"
+            
+        return "Logistics Center"
+
+class PublicPackageTrackingSerializer(serializers.ModelSerializer):
+    history = PublicTrackingActualizationSerializer(source='actualizations', many=True, read_only=True)
+    destination_city = serializers.CharField(source='destination_postmat.warehouse.city', read_only=True)
+    origin_city = serializers.CharField(source='origin_postmat.warehouse.city', read_only=True)
+    
+    class Meta:
+        model = Package
+        fields = [
+            'id', 
+            'size', 
+            'destination_city', 
+            'origin_city', 
+            'history'
+        ]
