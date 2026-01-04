@@ -79,7 +79,22 @@ class LocalRoutingService:
                 continue
             
             # Allocation Phase: Reserve stashes
-            allocated_pkgs = self._allocate_stashes(zone_pkgs)
+            # Returns tuple: (approved_packages, failed_packages)
+            allocated_pkgs, failed_pkgs = self._allocate_stashes(zone_pkgs)
+            
+            # --- Handle Lack of Free Stashes ---
+            if failed_pkgs:
+                print(f"Zone {zone.name}: {len(failed_pkgs)} packages could not be allocated due to full lockers.")
+                for pkg in failed_pkgs:
+                    # Create a history entry so the user sees "Delayed" instead of just "In Warehouse".
+                    # Using route_remaining field to store the reason message.
+                    Actualization.objects.create(
+                        package_id=pkg,
+                        status='in_warehouse', # Keep status, but update timestamp/history
+                        warehouse_id=warehouse,
+                        route_remaining={'info': "Delivery delayed: Destination locker full. Retrying next cycle."}
+                    )
+            # -----------------------------------
             
             if not allocated_pkgs:
                 print(f"Zone {zone.name}: No stashes available for {len(zone_pkgs)} packages.")
@@ -99,10 +114,11 @@ class LocalRoutingService:
     def _get_local_packages(self, warehouse):
         from packages.models import Actualization
         
+        # Added .order_by('created_at') to ensure FIFO priority (older packages first)
         latest_acts = Actualization.objects.filter(
             status='in_warehouse', 
             warehouse_id=warehouse.id
-        ).select_related('package_id__destination_postmat__zone')
+        ).select_related('package_id__destination_postmat__zone').order_by('created_at')
         
         candidates = []
         for act in latest_acts:
@@ -115,9 +131,10 @@ class LocalRoutingService:
     def _allocate_stashes(self, packages):
         """
         Check if destination postmat has empty stash of right size.
-        Returns list of packages that CAN be delivered.
+        Returns tuple: (approved_packages, failed_packages)
         """
         approved = []
+        failed = []
         
         by_postmat = defaultdict(list)
         for p in packages: by_postmat[p.destination_postmat].append(p)
@@ -145,8 +162,10 @@ class LocalRoutingService:
                 if selected_stash:
                     p._reserved_stash = selected_stash
                     approved.append(p)
+                else:
+                    failed.append(p)
                     
-        return approved
+        return approved, failed
 
     def _create_zone_route(self, driver, warehouse, packages, date):
         from logistics.models import Route, RouteStop, RoutePackage

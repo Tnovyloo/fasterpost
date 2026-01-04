@@ -58,6 +58,7 @@ class PackageListSerializer(serializers.ModelSerializer):
             "destination_postmat_name",
             "latest_status",
             "unlock_code",
+            "pickup_code",
             # "created_at",
             # Payment fields
             "payment_status",
@@ -154,6 +155,7 @@ class SendPackageSerializer(serializers.Serializer):
     receiver_name = serializers.CharField()
     receiver_phone = serializers.CharField()
     receiver_email = serializers.CharField()
+    pickup_code = serializers.CharField(required=False, allow_blank=True)
     size = serializers.ChoiceField(choices=Package.PackageSize.choices)
     weight = serializers.IntegerField()
 
@@ -219,6 +221,7 @@ class SendPackageSerializer(serializers.Serializer):
             receiver_name=validated_data["receiver_name"],
             receiver_phone=validated_data["receiver_phone"],
             size=size,
+            pickup_code=validated_data.get("pickup_code", ""),
             weight=validated_data["weight"],
             unlock_code=unlock_code,
             receiver_user=receiver_user,
@@ -522,6 +525,8 @@ class SenderPackageDetailSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source="sender.username", read_only=True)
     actualizations = ActualizationDetailSerializer(many=True, read_only=True)
     payment = PaymentDetailSerializer(read_only=True)
+    pickup_code = serializers.CharField(read_only=True)
+    unlock_code = serializers.CharField(read_only=True)
     latest_status = serializers.SerializerMethodField()
 
     class Meta:
@@ -542,6 +547,8 @@ class SenderPackageDetailSerializer(serializers.ModelSerializer):
             "actualizations",
             "payment",
             "latest_status",
+            'pickup_code',
+            'unlock_code',
         ]
 
     def get_latest_status(self, obj):

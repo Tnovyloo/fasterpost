@@ -111,7 +111,7 @@ export default function MyParcelsView() {
     const handlePaymentSuccess = async (packageId) => {
         setRetryingPayment(null);
         setClientSecret("");
-        showBanner("Payment successful! Updating status...", "success");
+        showBanner("Payment successful! You can now deposit the package.", "success");
         
         // Short delay to allow webhook to process on backend
         setTimeout(() => {
@@ -207,7 +207,7 @@ export default function MyParcelsView() {
                                         </div>
                                         <div>
                                             <p className="font-bold text-gray-900">{p.receiver_name}</p>
-                                            <p className="text-xs text-gray-500 font-mono">{p.id.slice(0, 8)}...</p>
+                                            <p className="text-xs text-gray-500 font-mono">{p.pickup_code.slice(0, 8)}...</p>
                                         </div>
                                     </div>
                                     {getStatusBadge(p.latest_status)}
@@ -260,15 +260,15 @@ export default function MyParcelsView() {
                                 <div className="bg-gray-900 text-white px-8 py-6 flex justify-between items-center shrink-0">
                                     <div>
                                         <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Tracking ID</p>
-                                        <p className="font-mono text-xl">{selectedParcel.id}</p>
+                                        <p className="font-mono text-xl">{selectedParcel.pickup_code}</p>
                                     </div>
                                     <button onClick={() => setSelectedParcel(null)} className="text-gray-400 hover:text-white transition p-2 hover:bg-white/10 rounded-lg">✕</button>
                                 </div>
 
                                 <div className="p-8 overflow-y-auto flex-1 space-y-8 scrollbar-thin">
-                                    
-                                    {/* Action Banner */}
-                                    {selectedParcel.payment?.status === 'succeeded' && selectedParcel.latest_status === 'placed_in_stash' && (
+                                
+                                    {/* Action Banner: RECEIVER - PICKUP */}
+                                    {selectedParcel.payment?.status === 'succeeded' && selectedParcel.latest_status === 'created' && (
                                         <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center shadow-inner">
                                             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">🔓</div>
                                             <h4 className="text-green-800 font-bold text-lg mb-1">Ready for Pickup!</h4>
@@ -309,9 +309,9 @@ export default function MyParcelsView() {
                                         </div>
                                         <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                                             <p className="text-xs font-bold text-blue-400 uppercase mb-2">Access Codes</p>
-                                            {selectedParcel.pickup_code ? (
+                                            {selectedParcel.unlock_code ? (
                                                 <div className="text-center">
-                                                    <p className="font-mono text-xl font-bold text-blue-900 tracking-wider">{selectedParcel.pickup_code}</p>
+                                                    <p className="font-mono text-xl font-bold text-blue-900 tracking-wider">{selectedParcel.unlock_code}</p>
                                                     <p className="text-[10px] text-blue-400 mt-1">Show this at locker</p>
                                                 </div>
                                             ) : (
