@@ -22,14 +22,16 @@ function getDistance(lat1, lon1, lat2, lon2) {
 }
 
 export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
+  const isEditing = !!pkg?.id;
+
   const [postmats, setPostmats] = useState([]);
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
-  const [receiverName, setReceiverName] = useState(pkg.receiver_name || "");
-  const [receiverPhone, setReceiverPhone] = useState(pkg.receiver_phone || "");
-  const [receiverEmail, setReceiverEmail] = useState(pkg.receiver_email || "");
-  const [size, setSize] = useState(pkg.size || "small");
-  const [weight, setWeight] = useState(pkg.weight || 1);
+  const [receiverName, setReceiverName] = useState(pkg?.receiver_name || "");
+  const [receiverPhone, setReceiverPhone] = useState(pkg?.receiver_phone || "");
+  const [receiverEmail, setReceiverEmail] = useState(pkg?.receiver_email || "");
+  const [size, setSize] = useState(pkg?.size || "small");
+  const [weight, setWeight] = useState(pkg?.weight || 1);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [pricing, setPricing] = useState(null);
@@ -51,18 +53,15 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
       const res = await axiosClient.get("/api/postmats/");
       setPostmats(res.data);
       
-      // Set initial origin and destination from package
-      const initialOrigin = res.data.find(p => p.name === pkg.origin_postmat_name);
-      const initialDestination = res.data.find(p => p.name === pkg.destination_postmat_name);
-      
-      if (initialOrigin) setOrigin(initialOrigin);
-      if (initialDestination) setDestination(initialDestination);
+      if (isEditing) {
+          const initialOrigin = res.data.find(p => p.name === pkg.origin_postmat_name);
+          const initialDestination = res.data.find(p => p.name === pkg.destination_postmat_name);
+          if (initialOrigin) setOrigin(initialOrigin);
+          if (initialDestination) setDestination(initialDestination);
+      }
     } catch (err) {
       console.error("Failed to load postmats:", err);
-      setMessage({
-        type: "error",
-        text: "Failed to load postmats. Please try again."
-      });
+      setMessage({ type: "error", text: "Failed to load postmats." });
     }
   };
 
@@ -80,12 +79,11 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
 
   const handleSubmit = async () => {
     if (!origin || !destination) {
-      setMessage({ type: "error", text: "Please select both origin and destination postmat." });
+      setMessage({ type: "error", text: "Please select both origin and destination." });
       return;
     }
-
     if (!receiverName || !receiverPhone) {
-      setMessage({ type: "error", text: "Please fill in receiver information." });
+      setMessage({ type: "error", text: "Please fill in receiver info." });
       return;
     }
 
@@ -95,7 +93,7 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
     setShowStashChangeWarning(false);
 
     try {
-      const res = await axiosClient.patch(`/api/packages/send-package/${pkg.id}`, {
+      const payload = {
         origin_postmat_id: origin.id,
         destination_postmat_id: destination.id,
         receiver_name: receiverName,
@@ -103,72 +101,45 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
         receiver_email: receiverEmail,
         size: size,
         weight: Number(weight),
-      });
+      };
 
-      // Check if origin postmat was changed due to stash availability
-      if (res.data.origin_postmat !== origin.name) {
-        const changedOrigin = postmats.find(p => p.name === res.data.origin_postmat);
+      let res;
+      if (isEditing) {
+        // PATCH existing package
+        res = await axiosClient.patch(`/api/packages/send-package/${pkg.id}/`, payload);
+      } else {
+        // POST new package
+        res = await axiosClient.post("/api/packages/send-package/", payload);
+      }
+
+      // Check if origin postmat changed (Logic for stash availability)
+      const returnedOriginName = res.data.origin_postmat || res.data.origin_postmat_name; // API might return name differently on create vs update
+      
+      if (returnedOriginName && returnedOriginName !== origin.name) {
+        const changedOrigin = postmats.find(p => p.name === returnedOriginName);
         setActualOrigin(changedOrigin);
         setShowStashChangeWarning(true);
-        
         setMessage({
           type: "warning",
-          text: `Selected origin changed to ${res.data.origin_postmat} due to stash availability.`,
+          text: `Origin changed to ${returnedOriginName} due to availability.`,
         });
       } else {
         setMessage({
           type: "success",
-          text: res.data.message || "Package updated successfully!",
+          text: isEditing ? "Package updated!" : "Package created!",
         });
+        
+        // If no warning, close after delay
+        setTimeout(() => {
+            onSuccess();
+            onClose();
+        }, 1500);
       }
 
-      // Show pricing recalculation message if applicable
-      if (res.data.pricing_recalculated) {
-        setTimeout(() => {
-          setMessage({
-            type: "info",
-            text: `Package updated! New price: $${res.data.payment.amount}`,
-          });
-        }, 2000);
-      }
-
-      // Close modal and refresh parent after success (only if no warning)
-      if (res.data.origin_postmat === origin.name) {
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-        }, 2000);
-      }
     } catch (err) {
-      console.error("Failed to update package:", err);
-      
-      let errorText = "Failed to update package.";
-      let errorDetails = [];
-      
-      if (err.response?.data?.error) {
-        errorText = err.response.data.error;
-      } else if (err.response?.data) {
-        if (typeof err.response.data === "string") {
-          errorText = err.response.data;
-        } else if (Array.isArray(err.response.data)) {
-          errorDetails = err.response.data;
-        } else if (typeof err.response.data === "object") {
-          // Flatten object errors
-          Object.entries(err.response.data).forEach(([field, messages]) => {
-            if (Array.isArray(messages)) {
-              messages.forEach(msg => errorDetails.push(`${field}: ${msg}`));
-            } else {
-              errorDetails.push(`${field}: ${messages}`);
-            }
-          });
-        }
-      }
-      
-      setMessage({
-        type: "error",
-        text: errorText,
-        details: errorDetails.length > 0 ? errorDetails : null
-      });
+      console.error("Submit error:", err);
+      const errorMsg = err.response?.data?.error || err.message || "Operation failed.";
+      setMessage({ type: "error", text: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -182,245 +153,155 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
     }, 500);
   };
 
-  const distance =
-    actualOrigin && origin && actualOrigin.id !== origin.id
-      ? getDistance(
-          origin.latitude,
-          origin.longitude,
-          actualOrigin.latitude,
-          actualOrigin.longitude
-        ).toFixed(2)
+  const distance = actualOrigin && origin && actualOrigin.id !== origin.id
+      ? getDistance(origin.latitude, origin.longitude, actualOrigin.latitude, actualOrigin.longitude).toFixed(2)
       : null;
 
-  const mapProps = { 
-    postmats, 
-    origin, 
-    destination, 
-    setOrigin, 
-    setDestination, 
-    actualOrigin 
-  };
+  const mapProps = { postmats, origin, destination, setOrigin, setDestination, actualOrigin };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center rounded-t-2xl z-10">
-          <h2 className="text-2xl font-bold text-blue-900">Edit Package</h2>
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="text-gray-500 hover:text-gray-700 text-2xl font-bold disabled:opacity-50"
-          >
-            ×
+        <div className="sticky top-0 bg-white border-b px-8 py-5 flex justify-between items-center z-10">
+          <h2 className="text-2xl font-bold text-gray-900">
+            {isEditing ? "Edit Package" : "Send New Package"}
+          </h2>
+          <button onClick={onClose} disabled={loading} className="p-2 hover:bg-gray-100 rounded-full transition">
+            ✕
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Warning Banner */}
-          <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-4 mb-6">
-            <p className="text-sm text-yellow-800">
-              ⚠️ <strong>Note:</strong> After payment completion, you won't be able to edit any parcel information. 
-              Complete payment later in the Account tab if you're unsure about details.
-            </p>
-          </div>
-
-          {/* Messages */}
-          {message && (
-            <div
-              className={`p-4 rounded-xl mb-6 border-2 ${
-                message.type === "error"
-                  ? "bg-red-50 text-red-800 border-red-300"
-                  : message.type === "warning"
-                  ? "bg-orange-50 text-orange-800 border-orange-300"
-                  : message.type === "info"
-                  ? "bg-blue-50 text-blue-800 border-blue-300"
-                  : "bg-green-50 text-green-800 border-green-300"
-              }`}
-            >
-              <p className="font-semibold mb-1">{message.text}</p>
-              {message.details && message.details.length > 0 && (
-                <ul className="mt-2 space-y-1 text-sm">
-                  {message.details.map((detail, idx) => (
-                    <li key={idx} className="flex items-start">
-                      <span className="mr-2">•</span>
-                      <span>{detail}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {/* Stash Change Warning with Distance */}
-          {showStashChangeWarning && actualOrigin && distance && (
-            <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-6">
-              <p className="font-bold text-orange-900 mb-2">
-                🔄 Origin Postmat Changed
-              </p>
-              <p className="text-sm text-orange-800 mb-3">
-                The selected origin postmat didn't have an available stash for your package size. 
-                We've automatically assigned the nearest available postmat: <strong>{actualOrigin.name}</strong>
-              </p>
-              <p className="text-sm text-orange-700 mb-4">
-                📍 Distance from your selected origin: <strong>{distance} km</strong>
-              </p>
-              <button
-                onClick={handleAcknowledgeChange}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
-              >
-                I Understand, Continue
-              </button>
-            </div>
-          )}
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* LEFT — FORM */}
-            <div className="space-y-5">
-              <h3 className="text-lg font-semibold text-gray-800">Package Details</h3>
-
-              <div>
-                <label className="block font-medium text-gray-700 mb-1">Receiver Name</label>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded-xl p-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  value={receiverName}
-                  onChange={(e) => setReceiverName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 mb-1">Receiver Phone</label>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded-xl p-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  value={receiverPhone}
-                  onChange={(e) => setReceiverPhone(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 mb-1">Receiver Email</label>
-                <input
-                  type="email"
-                  className="w-full border border-gray-300 rounded-xl p-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  value={receiverEmail}
-                  onChange={(e) => setReceiverEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 mb-1">Size</label>
-                <select
-                  className="w-full border border-gray-300 rounded-xl p-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  value={size}
-                  onChange={(e) => setSize(e.target.value)}
-                  disabled={loading}
-                >
-                  <option value="small">Small</option>
-                  <option value="medium">Medium</option>
-                  <option value="large">Large</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 mb-1">Weight (kg)</label>
-                <input
-                  type="number"
-                  className="w-full border border-gray-300 rounded-xl p-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  min="1"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Current Pricing */}
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <p className="font-semibold text-gray-800 mb-2">Current Price:</p>
-                <p className="text-2xl font-bold text-blue-900">${pkg.payment_amount}</p>
-              </div>
-
-              {/* New Pricing Display */}
-              {pricing && (
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                  <p className="font-semibold text-blue-900 mb-2">New Estimated Price:</p>
-                  <div className="space-y-1 text-sm text-gray-800">
-                    <p>Base Price: ${pricing.base_price}</p>
-                    <p>Size Surcharge: ${pricing.size_surcharge}</p>
-                    <p>Weight Surcharge: ${pricing.weight_surcharge}</p>
-                    <hr className="my-2 border-blue-200" />
-                    <p className="text-xl font-bold text-blue-900">
-                      Total: ${pricing.total} {pricing.currency}
-                    </p>
-                  </div>
-                  {pricing.total !== pkg.payment_amount && (
-                    <p className="text-sm text-orange-600 mt-2">
-                      ⚠️ Price will be updated after saving changes
-                    </p>
-                  )}
+        <div className="p-8">
+            {/* Messages */}
+            {message && (
+                <div className={`p-4 rounded-xl mb-6 border ${
+                    message.type === 'error' ? 'bg-red-50 border-red-200 text-red-700' :
+                    message.type === 'warning' ? 'bg-orange-50 border-orange-200 text-orange-800' :
+                    'bg-green-50 border-green-200 text-green-700'
+                }`}>
+                    <p className="font-bold">{message.text}</p>
                 </div>
-              )}
+            )}
 
-              {/* Selected postmats info */}
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <p className="text-sm text-gray-700">
-                  <b>Origin:</b> {origin ? origin.name : "Not selected"}
-                </p>
-                <p className="text-sm text-gray-700">
-                  <b>Destination:</b> {destination ? destination.name : "Not selected"}
-                </p>
-                {actualOrigin && distance && (
-                  <p className="text-sm text-orange-600 mt-2">
-                    ⚠️ Actual origin: <strong>{actualOrigin.name}</strong> ({distance} km away)
-                  </p>
-                )}
-              </div>
-            </div>
+             {/* Stash Warning */}
+             {showStashChangeWarning && actualOrigin && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 mb-8 shadow-sm">
+                    <h4 className="font-bold text-orange-900 text-lg mb-2">⚠️ Station Changed</h4>
+                    <p className="text-orange-800 mb-4">
+                        Your selected station was full. We moved your reservation to <strong>{actualOrigin.name}</strong> 
+                        which is {distance}km away.
+                    </p>
+                    <button onClick={handleAcknowledgeChange} className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-700 transition">
+                        Accept & Continue
+                    </button>
+                </div>
+             )}
 
-            {/* RIGHT — MAP */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                Select Postmats
-              </h3>
-              <div className="h-[500px] rounded-xl overflow-hidden border border-gray-200">
-                <ParcelMapSendPackage {...mapProps} />
-              </div>
-            </div>
-          </div>
+             <div className="grid lg:grid-cols-2 gap-10">
+                
+                {/* Form Section */}
+                <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Size</label>
+                            <select 
+                                value={size} 
+                                onChange={e => setSize(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                disabled={loading}
+                            >
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Weight (kg)</label>
+                            <input 
+                                type="number" 
+                                value={weight} 
+                                onChange={e => setWeight(e.target.value)}
+                                min="1"
+                                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                disabled={loading}
+                            />
+                        </div>
+                    </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-4 mt-8 pt-6 border-t">
-            <button
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading || showStashChangeWarning}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Updating...</span>
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </button>
-          </div>
+                    <div className="space-y-4">
+                        <input 
+                            placeholder="Receiver Name" 
+                            value={receiverName} 
+                            onChange={e => setReceiverName(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                            disabled={loading}
+                        />
+                        <input 
+                            placeholder="Receiver Phone" 
+                            value={receiverPhone} 
+                            onChange={e => setReceiverPhone(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                            disabled={loading}
+                        />
+                         <input 
+                            placeholder="Receiver Email" 
+                            type="email"
+                            value={receiverEmail} 
+                            onChange={e => setReceiverEmail(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                            disabled={loading}
+                        />
+                    </div>
+
+                    {/* Pricing Card */}
+                    {pricing && (
+                        <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex justify-between items-center">
+                            <div>
+                                <p className="text-sm text-blue-600 font-bold uppercase">Estimated Total</p>
+                                <p className="text-xs text-blue-400">Includes size & weight fees</p>
+                            </div>
+                            <p className="text-3xl font-bold text-blue-900">${pricing.total}</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Map Section */}
+                <div className="h-[400px] lg:h-auto min-h-[400px] rounded-xl overflow-hidden border border-gray-200 relative">
+                     <ParcelMapSendPackage {...mapProps} />
+                     
+                     {/* Overlay Stats */}
+                     <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur p-3 rounded-lg border border-gray-200 shadow-sm text-xs flex justify-between z-[1000]">
+                        <div>
+                            <span className="block text-gray-500 uppercase font-bold text-[10px]">Origin</span>
+                            <span className="font-bold text-gray-900">{origin ? origin.name : "Select on Map"}</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="block text-gray-500 uppercase font-bold text-[10px]">Destination</span>
+                            <span className="font-bold text-gray-900">{destination ? destination.name : "Select on Map"}</span>
+                        </div>
+                     </div>
+                </div>
+
+             </div>
         </div>
+
+        {/* Footer Actions */}
+        <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 sticky bottom-0 rounded-b-2xl">
+            <button onClick={onClose} disabled={loading} className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition">
+                Cancel
+            </button>
+            <button 
+                onClick={handleSubmit} 
+                disabled={loading || showStashChangeWarning} 
+                className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+                {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+                {isEditing ? "Update Package" : "Create & Proceed to Pay"}
+            </button>
+        </div>
+
       </div>
     </div>
   );

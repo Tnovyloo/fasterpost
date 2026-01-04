@@ -1,6 +1,15 @@
 from django.db import models
 import uuid
+import random
+import string
 from accounts.models import User
+
+# --- Helper to generate short unique codes ---
+def generate_tracking_code():
+    """Generates a random string like 'TRK-9X2A1'"""
+    chars = string.ascii_uppercase + string.digits
+    code = ''.join(random.choices(chars, k=8))
+    return f"TRK-{code}"
 
 class Package(models.Model):
     class PackageSize(models.TextChoices):
@@ -9,7 +18,10 @@ class Package(models.Model):
         LARGE = "large", "Large"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    pickup_code = models.CharField(max_length=10, blank=True, null=True)
+    
+    # This will now be your friendly Tracking Number
+    pickup_code = models.CharField(max_length=15, blank=True, null=True, unique=True)
+    
     origin_postmat = models.ForeignKey(
         "postmats.Postmat", on_delete=models.CASCADE, related_name="origin_packages"
     )
@@ -31,11 +43,26 @@ class Package(models.Model):
     receiver_email = models.CharField(max_length=100, null=True, blank=True)
     size = models.CharField(max_length=10, choices=PackageSize.choices)
     weight = models.PositiveIntegerField()
+    
+    # This is the secret PIN to open the locker
     unlock_code = models.CharField(max_length=10, blank=True, null=True)
+    
     route_path = models.JSONField()
 
+    def save(self, *args, **kwargs):
+        # Auto-generate tracking code if missing
+        if not self.pickup_code:
+            unique = False
+            while not unique:
+                new_code = generate_tracking_code()
+                if not Package.objects.filter(pickup_code=new_code).exists():
+                    self.pickup_code = new_code
+                    unique = True
+        
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.size + " " + self.sender.email + "→" + self.receiver_email
+        return f"{self.pickup_code} ({self.size})"
 
 
 class Actualization(models.Model):

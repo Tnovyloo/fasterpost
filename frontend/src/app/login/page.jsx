@@ -35,7 +35,23 @@ export default function LoginPage() {
       } else {
         // success login
         localStorage.setItem("isLoggedIn", "true");
-        router.push("/user");
+
+        try {
+          const roleRes = await api.get("/accounts/user/role/");
+          const isAdmin = roleRes.data.is_admin || false;
+          const isCourier = roleRes.data.role === "courier" || false;
+
+          if (isAdmin) {
+            router.push("/admin");
+          } else if (isCourier) {
+            router.push("/courier/dashboard");
+          } else {
+            router.push("/user");
+          }
+        } catch (err) {
+          console.error("Role check failed after login:", err);
+          router.push("/user");
+        }
       }
     } catch (err) {
       if (err.response?.status === 206 && err.response?.data?.require_2fa) {

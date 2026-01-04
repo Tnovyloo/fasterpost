@@ -15,6 +15,8 @@ class PostmatSerializer(serializers.ModelSerializer):
             "address",
             "latitude",
             "longitude",
+            "image",
+            "postal_code",
         ]
 
 class StashSerializer(serializers.ModelSerializer):
@@ -43,7 +45,7 @@ class PostmatAdminSerializer(serializers.ModelSerializer):
         model = Postmat
         fields = [
             "id", "warehouse", "warehouse_id", "name", "status", "display_status", "address",
-            "latitude", "longitude", "postal_code", "stashes"
+            "latitude", "longitude", "postal_code", "stashes", "image"
         ]
         read_only_fields = ["id"]
 

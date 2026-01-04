@@ -42,6 +42,8 @@ class Postmat(models.Model):
         help_text="Cached address from geocoding or seeder",
     )
 
+    image = models.ImageField(upload_to='postmats/', null=True, blank=True)
+
     def __str__(self):
         return self.name
 

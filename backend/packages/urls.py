@@ -10,6 +10,7 @@ from packages.views.views_packages import (
     OpenStashView,
     PackageDetailView,
 )
+from packages.views import views_public
 
 urlpatterns = [
     path("user/", UserPackagesView.as_view()),
@@ -43,4 +44,5 @@ urlpatterns = [
         RetryPaymentView.as_view(),
         name="retry-payment",
     ),
+    path('public/track/<str:query>/', views_public.PublicTrackingView.as_view(), name='public-track'),
 ]

@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
-import Header from "../components/Header";
-import Footer from "../components/Header";
-import ParcelTimeline from "../components/ParcelTimeline";
+import Header from "../../components/Header";
+import Footer from "../../components/Header";
+import ParcelTimeline from "../../components/ParcelTimeline";
 
 import api from "@/axios/api";
 
-const ParcelMap = dynamic(() => import('../components/ParcelMapSendPackage'), {
+const ParcelMap = dynamic(() => import('../../components/ParcelMapSendPackage'), {
     ssr: false,
     loading: () => <p>Loading...</p>,
 });

@@ -3,6 +3,7 @@ __pycache__/
 .env
 *.sqlite3
 /media
+/media_volume
 
 /pgdata
 .log
