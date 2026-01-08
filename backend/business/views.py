@@ -4,9 +4,11 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
-from .models import BusinessUserRequest
+from rest_framework import serializers
+from .models import BusinessUserRequest, Magazine
 from .serializers import BusinessUserRequestSerializer
 from rest_framework import generics
+from django.apps import apps
 
 
 def fetch_ceidg_data(nip):
@@ -108,3 +110,153 @@ class BusinessRequestAdminActionView(APIView):
 
         business_req.save()
         return Response({"status": "success", "new_status": business_req.status})
+
+
+# --- Business Panel Views ---
+
+
+class BusinessDashboardStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # Assuming Package model exists in packages app
+        try:
+            Payment = apps.get_model("payments", "Payment")
+            Package = apps.get_model("packages", "Package")
+            total_packages = Package.objects.filter(sender=request.user).count()
+            unpaid_packages = (
+                Payment.objects.filter(user=request.user)
+                .exclude(status="SUCCEEDED")
+                .count()
+            )
+        except LookupError:
+            total_packages = 0
+            unpaid_packages = 0
+
+        # Assuming Magazine model exists in business app
+        try:
+            total_magazines = Magazine.objects.filter(user=request.user).count()
+        except LookupError:
+            total_magazines = 0
+
+        return Response(
+            {
+                "total_packages": total_packages,
+                "unpaid_packages": unpaid_packages,
+                "total_magazines": total_magazines,
+            }
+        )
+
+
+class MagazineView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            magazines = Magazine.objects.filter(user=request.user)
+            data = [
+                {
+                    "id": m.id,
+                    "name": m.name,
+                    "address": m.address,
+                    "lat": m.lat,
+                    "lng": m.lng,
+                }
+                for m in magazines
+            ]
+            return Response(data)
+        except LookupError:
+            return Response([], status=200)
+
+    def post(self, request):
+        try:
+            data = request.data
+            magazine = Magazine.objects.create(
+                user=request.user,
+                name=data.get("name"),
+                address=data.get("address"),
+                lat=data.get("lat"),
+                lng=data.get("lng"),
+            )
+            return Response({"id": magazine.id, "status": "created"}, status=201)
+        except LookupError:
+            return Response({"error": "Magazine model not found"}, status=500)
+
+
+class BusinessPackageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            Package = apps.get_model("packages", "Package")
+            packages = (
+                Package.objects.filter(sender=request.user)
+                .select_related("payment")
+                .order_by("-created_at")
+            )
+
+            data = []
+            for p in packages:
+                is_paid = False
+                price = 0.0
+                if hasattr(p, "payment"):
+                    is_paid = p.payment.status == "SUCCEEDED"
+                    price = p.payment.amount
+
+                data.append(
+                    {
+                        "id": p.id,
+                        "receiver_name": p.receiver_name,
+                        "status": (
+                            p.actualizations.last().status
+                            if p.actualizations.exists()
+                            else "created"
+                        ),
+                        "is_paid": is_paid,
+                        "created_at": p.created_at,
+                        "price": price,
+                    }
+                )
+
+            return Response(data)
+        except LookupError:
+            return Response([])
+
+    def post(self, request):
+        # Create package logic
+        try:
+            Package = apps.get_model("packages", "Package")
+            Payment = apps.get_model("payments", "Payment")
+
+            data = request.data
+            magazine = get_object_or_404(
+                Magazine, pk=data.get("magazine_id"), user=request.user
+            )
+
+            # Create package linked to magazine
+            package = Package.objects.create(
+                sender=request.user,
+                source_magazine=magazine,
+                receiver_name=data.get("receiver_name"),
+                receiver_address=data.get("receiver_address"),
+                receiver_phone=data.get(
+                    "receiver_phone", "000000000"
+                ),  # Default if not provided
+                size=data.get("size"),
+                weight=data.get("weight"),
+                route_path=[],
+            )
+
+            # Create Payment
+            price = 10.0 + (float(data.get("weight")) * 1.5)  # Simple pricing logic
+            Payment.objects.create(
+                package=package,
+                user=request.user,
+                amount=price,
+                status="PENDING",
+                currency="usd",
+            )
+
+            return Response({"id": package.id, "status": "created"}, status=201)
+        except LookupError:
+            return Response({"error": "Models not found"}, status=500)

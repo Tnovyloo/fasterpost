@@ -4,6 +4,9 @@ from business.views import (
     BusinessRequestView,
     BusinessRequestAdminListView,
     BusinessRequestAdminActionView,
+    BusinessDashboardStatsView,
+    MagazineView,
+    BusinessPackageView,
 )
 
 urlpatterns = [
@@ -19,4 +22,12 @@ urlpatterns = [
         BusinessRequestAdminActionView.as_view(),
         name="business-request-action",
     ),
+    # Business Panel
+    path(
+        "dashboard/stats",
+        BusinessDashboardStatsView.as_view(),
+        name="business-dashboard-stats",
+    ),
+    path("magazines", MagazineView.as_view(), name="business-magazines"),
+    path("packages", BusinessPackageView.as_view(), name="business-packages"),
 ]
