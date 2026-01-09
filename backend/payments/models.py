@@ -22,9 +22,7 @@ class Payment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     # Stripe fields
-    stripe_payment_intent_id = models.CharField(
-        max_length=255, unique=True, null=True, blank=True
-    )
+    stripe_payment_intent_id = models.CharField(max_length=255, null=True, blank=True)
     stripe_client_secret = models.CharField(max_length=255, null=True, blank=True)
 
     # Payment details

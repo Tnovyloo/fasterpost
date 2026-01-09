@@ -7,6 +7,9 @@ from business.views import (
     BusinessDashboardStatsView,
     MagazineView,
     BusinessPackageView,
+    BusinessPriceCalculatorView,
+    BusinessBulkPaymentView,
+    BusinessPaymentVerifyView,
 )
 
 urlpatterns = [
@@ -30,4 +33,19 @@ urlpatterns = [
     ),
     path("magazines", MagazineView.as_view(), name="business-magazines"),
     path("packages", BusinessPackageView.as_view(), name="business-packages"),
+    path(
+        "calculate-price",
+        BusinessPriceCalculatorView.as_view(),
+        name="business-calculate-price",
+    ),
+    path(
+        "bulk-payment",
+        BusinessBulkPaymentView.as_view(),
+        name="business-bulk-payment",
+    ),
+    path(
+        "payment/verify",
+        BusinessPaymentVerifyView.as_view(),
+        name="business-payment-verify",
+    ),
 ]

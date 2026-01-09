@@ -30,9 +30,13 @@ export default function PaymentsPage() {
     }
   };
 
-  const handlePay = () => {
-    alert(`Processing payment for ${selected.length} packages...`);
-    // Implement payment API call here
+  const handlePay = async () => {
+    try {
+      const res = await api.post("api/business/bulk-payment", { package_ids: selected });
+      if (res.data.url) window.location.href = res.data.url;
+    } catch (err) {
+      alert("Failed to initiate payment: " + (err.response?.data?.error || err.message));
+    }
   };
 
   return (

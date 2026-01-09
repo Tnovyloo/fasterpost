@@ -3,15 +3,35 @@
 import { useEffect, useState } from "react";
 import api from "@/axios/api";
 import { Package, CreditCard, Warehouse } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ total_packages: 0, unpaid_packages: 0, total_magazines: 0 });
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
+    const paymentStatus = searchParams.get("payment");
+    const sessionId = searchParams.get("session_id");
+
+    if (paymentStatus === "success" && sessionId) {
+      // Verify payment with backend to ensure status is updated
+      api.post("api/business/payment/verify", { session_id: sessionId })
+        .then(() => {
+          fetchStats();
+          router.replace("/business/dashboard"); // Clean URL
+        })
+        .catch((err) => console.error("Payment verification failed", err));
+    } else {
+      fetchStats();
+    }
+  }, [searchParams]);
+
+  const fetchStats = () => {
     api.get("api/business/dashboard/stats") // You need to map this URL in backend urls.py
       .then((res) => setStats(res.data))
       .catch((err) => console.error(err));
-  }, []);
+  };
 
   const cards = [
     {

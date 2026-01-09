@@ -65,6 +65,7 @@ class Package(models.Model):
     unlock_code = models.CharField(max_length=10, blank=True, null=True)
 
     route_path = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         # Auto-generate tracking code if missing
