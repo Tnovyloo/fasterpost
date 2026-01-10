@@ -10,6 +10,7 @@ export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCourier, setIsCourier] = useState(false);
+  const [isBusiness, setIsBusiness] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -30,13 +31,16 @@ export default function Header() {
           // Check admin status
           try {
             const roleRes = await api.get("/accounts/user/role/");
+            console.log(roleRes);
             setIsAdmin(roleRes.data.is_admin || false);
             const role = roleRes.data.role;
             setIsCourier(role === "courier" || role === "warehouse");
+            setIsBusiness(role === "business");
           } catch (err) {
             console.error("Role check failed:", err);
             setIsAdmin(false);
             setIsCourier(false);
+            setIsBusiness(false);
           }
         } else {
           localStorage.removeItem("isLoggedIn");
@@ -64,6 +68,7 @@ export default function Header() {
       setIsLoggedIn(false);
       setIsAdmin(false);
       setIsCourier(false);
+      setIsBusiness(false);
       setMenuOpen(false);
       router.push("/login");
     }
@@ -112,6 +117,11 @@ export default function Header() {
               {isCourier && (
                 <>
                   <NavLink href="/courier/dashboard">Courier</NavLink>
+                </>
+              )}
+              {isBusiness && (
+                <>
+                  <NavLink href="/business/dashboard">Business</NavLink>
                 </>
               )}
               <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, Warehouse, Map, Users } from "lucide-react";
+import { Package, Warehouse, Map, Users, Briefcase } from "lucide-react";
 
 export default function DashboardHome({ setActiveTab }) {
   return (
@@ -69,6 +69,17 @@ export default function DashboardHome({ setActiveTab }) {
           </div>
           <p className="text-xl font-bold text-gray-800">User Accounts</p>
           <p className="text-gray-600 mt-2 text-sm">Manage couriers & users</p>
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('business')}
+          className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-8 text-center hover:shadow-xl hover:border-orange-400 hover:-translate-y-1 transition duration-300 group"
+        >
+          <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-110 transition">
+             <Briefcase className="w-10 h-10 text-orange-600" />
+          </div>
+          <p className="text-xl font-bold text-gray-800">Business Requests</p>
+          <p className="text-gray-600 mt-2 text-sm">Approve B2B applications</p>
         </button>
       </div>
     </div>

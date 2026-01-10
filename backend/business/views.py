@@ -111,6 +111,10 @@ class BusinessRequestAdminActionView(APIView):
 
         if action == "approve":
             business_req.status = BusinessUserRequest.Status.APPROVED
+            # Update user role to business
+            user = business_req.user
+            user.role = "business"
+            user.save()
         elif action == "reject":
             business_req.status = BusinessUserRequest.Status.REJECTED
 

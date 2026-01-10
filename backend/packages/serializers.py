@@ -44,6 +44,7 @@ class PackageListSerializer(serializers.ModelSerializer):
     payment_amount = serializers.SerializerMethodField()
     payment_client_secret = serializers.SerializerMethodField()
     can_retry_payment = serializers.SerializerMethodField()
+    pickup_code = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
@@ -66,6 +67,10 @@ class PackageListSerializer(serializers.ModelSerializer):
             "payment_client_secret",
             "can_retry_payment",
         ]
+
+    def get_pickup_code(self, obj):
+        """Ensure pickup_code is never null to prevent frontend crashes"""
+        return obj.pickup_code or ""
 
     def get_payment_status(self, obj):
         """Get payment status for this package"""
@@ -386,6 +391,7 @@ from accounts.models import User
 
 class PostmatMinimalSerializer(serializers.ModelSerializer):
     warehouse_city = serializers.CharField(source="warehouse_id.city", read_only=True)
+
     class Meta:
         model = Postmat
         fields = [
@@ -420,6 +426,7 @@ class ActualizationSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
+
 class PackageAdminSerializer(serializers.ModelSerializer):
     origin_postmat_detail = PostmatMinimalSerializer(
         source="origin_postmat", read_only=True
@@ -432,9 +439,11 @@ class PackageAdminSerializer(serializers.ModelSerializer):
     actualizations = ActualizationSerializer(many=True, read_only=True)
 
     # Writable fields for updates
-    origin_postmat = serializers.PrimaryKeyRelatedField(queryset=Postmat.objects.all())
+    origin_postmat = serializers.PrimaryKeyRelatedField(
+        queryset=Postmat.objects.all(), allow_null=True, required=False
+    )
     destination_postmat = serializers.PrimaryKeyRelatedField(
-        queryset=Postmat.objects.all()
+        queryset=Postmat.objects.all(), allow_null=True, required=False
     )
     sender = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
@@ -547,56 +556,58 @@ class SenderPackageDetailSerializer(serializers.ModelSerializer):
             "actualizations",
             "payment",
             "latest_status",
-            'pickup_code',
-            'unlock_code',
+            "pickup_code",
+            "unlock_code",
         ]
 
     def get_latest_status(self, obj):
         latest = obj.actualizations.first()
         return latest.status if latest else "created"
-    
+
+
 class PublicTrackingActualizationSerializer(serializers.ModelSerializer):
     location = serializers.SerializerMethodField()
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = Actualization
-        fields = ['status', 'status_display', 'created_at', 'location']
+        fields = ["status", "status_display", "created_at", "location"]
 
     def get_location(self, obj):
         # Determine location based on status and foreign keys
         if obj.warehouse_id:
             return f"In warehouse {obj.warehouse_id.city}"
-        
-        if obj.status == 'placed_in_stash':
+
+        if obj.status == "placed_in_stash":
             # It's at the destination postmat
             return f"Placed in postmat {obj.package_id.destination_postmat.name}"
-            
-        if obj.status == 'created':
-             return "Registered in System"
-             
-        if obj.status == 'in_transit':
+
+        if obj.status == "created":
+            return "Registered in System"
+
+        if obj.status == "in_transit":
             return "In transit (Courier)"
-        
-        if obj.status == 'delivered':
+
+        if obj.status == "delivered":
             return f"Delivered to postmat {obj.package_id.destination_postmat.name}"
-        
-        if obj.status == 'picked_up':
+
+        if obj.status == "picked_up":
             return f"Picked up from postmat {obj.package_id.destination_postmat.name}"
-            
+
         return "Logistics Center"
 
+
 class PublicPackageTrackingSerializer(serializers.ModelSerializer):
-    history = PublicTrackingActualizationSerializer(source='actualizations', many=True, read_only=True)
-    destination_city = serializers.CharField(source='destination_postmat.warehouse.city', read_only=True)
-    origin_city = serializers.CharField(source='origin_postmat.warehouse.city', read_only=True)
-    
+    history = PublicTrackingActualizationSerializer(
+        source="actualizations", many=True, read_only=True
+    )
+    destination_city = serializers.CharField(
+        source="destination_postmat.warehouse.city", read_only=True
+    )
+    origin_city = serializers.CharField(
+        source="origin_postmat.warehouse.city", read_only=True
+    )
+
     class Meta:
         model = Package
-        fields = [
-            'id', 
-            'size', 
-            'destination_city', 
-            'origin_city', 
-            'history'
-        ]
+        fields = ["id", "size", "destination_city", "origin_city", "history"]
