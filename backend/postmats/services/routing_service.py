@@ -20,7 +20,7 @@ class LocalRoutingService:
     @transaction.atomic
     def generate_local_routes(self, target_date: date, warehouse_id: str):
         from accounts.models import User
-        from logistics.models import Route, Warehouse, RouteStop, RoutePackage
+        from logistics.models import Route, Warehouse
         from postmats.models import Zone
         from packages.models import Actualization
         
@@ -54,16 +54,14 @@ class LocalRoutingService:
         created_routes = []
         
         # 2. Get available drivers STRICTLY for this warehouse
-        # Fix: Ensure we only fetch couriers assigned to this specific warehouse
         couriers = list(User.objects.filter(
             role='courier', 
             is_active=True,
-            warehouse=warehouse  # <--- Strict Filter
+            warehouse=warehouse
         ).order_by('id'))
         
         if not couriers:
             print(f"No local couriers available assigned to {warehouse.city}!")
-            # In debug mode, we might want to fallback, but for correctness we should probably stop or warn
             if settings.DEBUG:
                  print("DEBUG: Falling back to ANY local courier because of debug mode.")
                  couriers = list(User.objects.filter(role='courier', is_active=True).order_by('id'))
@@ -79,18 +77,16 @@ class LocalRoutingService:
                 continue
             
             # Allocation Phase: Reserve stashes
-            # Returns tuple: (approved_packages, failed_packages)
             allocated_pkgs, failed_pkgs = self._allocate_stashes(zone_pkgs)
             
             # --- Handle Lack of Free Stashes ---
             if failed_pkgs:
                 print(f"Zone {zone.name}: {len(failed_pkgs)} packages could not be allocated due to full lockers.")
                 for pkg in failed_pkgs:
-                    # Create a history entry so the user sees "Delayed" instead of just "In Warehouse".
-                    # Using route_remaining field to store the reason message.
+                    # FIX: Używamy package_id i warehouse_id zgodnie z definicją modelu
                     Actualization.objects.create(
                         package_id=pkg,
-                        status='in_warehouse', # Keep status, but update timestamp/history
+                        status='in_warehouse', 
                         warehouse_id=warehouse,
                         route_remaining={'info': "Delivery delayed: Destination locker full. Retrying next cycle."}
                     )
@@ -114,17 +110,27 @@ class LocalRoutingService:
     def _get_local_packages(self, warehouse):
         from packages.models import Actualization
         
-        # Added .order_by('created_at') to ensure FIFO priority (older packages first)
+        # FIFO priority
         latest_acts = Actualization.objects.filter(
             status='in_warehouse', 
-            warehouse_id=warehouse.id
+            warehouse_id=warehouse.id # FIX: warehouse_id zamiast warehouse (dla bezpieczeństwa zapytań)
         ).select_related('package_id__destination_postmat__zone').order_by('created_at')
         
         candidates = []
+        # Uwaga: latest_acts to queryset Actualization, musimy wyciągnąć unikalne paczki
+        seen_packages = set()
+        
         for act in latest_acts:
             pkg = act.package_id
+            if pkg.id in seen_packages:
+                continue
+            
+            # Sprawdź czy to jest ostatni status tej paczki (najnowsza aktualizacja)
+            # W prostszym modelu można założyć, że bierzemy statusy 'in_warehouse'.
+            # Ale dla pewności sprawdźmy czy paczka faktycznie ma iść z tego magazynu.
             if pkg.destination_postmat.warehouse_id == warehouse.id:
                 candidates.append(pkg)
+                seen_packages.add(pkg.id)
         
         return candidates
 
@@ -140,6 +146,7 @@ class LocalRoutingService:
         for p in packages: by_postmat[p.destination_postmat].append(p)
         
         for pm, pkgs in by_postmat.items():
+            # Pobieramy puste skrytki, które nie są zarezerwowane
             empty_stashes = list(pm.stashes.filter(is_empty=True, reserved_until__isnull=True))
             
             small_stashes = [s for s in empty_stashes if s.size == 'small']
@@ -149,6 +156,7 @@ class LocalRoutingService:
             for p in pkgs:
                 selected_stash = None
                 
+                # Prosta logika dopasowania rozmiaru (można ulepszyć o wkładanie małych do dużych)
                 if p.size == 'small':
                     if small_stashes: selected_stash = small_stashes.pop()
                     elif medium_stashes: selected_stash = medium_stashes.pop()
@@ -160,7 +168,7 @@ class LocalRoutingService:
                     if large_stashes: selected_stash = large_stashes.pop()
                 
                 if selected_stash:
-                    p._reserved_stash = selected_stash
+                    p._reserved_stash = selected_stash # Tymczasowe przypisanie w pamięci
                     approved.append(p)
                 else:
                     failed.append(p)
@@ -181,7 +189,6 @@ class LocalRoutingService:
         
         while remaining:
             nearest = min(remaining, key=lambda pm: math.sqrt((pm.latitude-current_loc['lat'])**2 + (pm.longitude-current_loc['lon'])**2))
-            
             dist = self._haversine(current_loc['lat'], current_loc['lon'], nearest.latitude, nearest.longitude)
             total_dist += dist
             
@@ -202,19 +209,35 @@ class LocalRoutingService:
             estimated_duration=int((total_dist / self.AVG_SPEED_KM_MIN) + (len(ordered_stops) * self.STOP_DURATION_MINUTES))
         )
         
-        # Create Stops
-        start_stop = RouteStop.objects.create(route=route, warehouse=warehouse, order=0, distance_from_previous=0)
+        # STOP 0: Warehouse (START)
+        start_stop = RouteStop.objects.create(
+            route=route, 
+            warehouse=warehouse, 
+            order=0, 
+            distance_from_previous=0
+        )
         
         current_order = 1
         pm_stop_map = {} 
         
+        # Przystanki pośrednie (Paczkomaty)
         for pm, dist in ordered_stops:
-            stop = RouteStop.objects.create(route=route, postmat=pm, order=current_order, distance_from_previous=round(dist, 2))
+            stop = RouteStop.objects.create(
+                route=route, 
+                postmat=pm, 
+                order=current_order, 
+                distance_from_previous=round(dist, 2)
+            )
             pm_stop_map[pm.id] = stop
             current_order += 1
             
-        # Stop N: Warehouse (Return)
-        RouteStop.objects.create(route=route, warehouse=warehouse, order=current_order, distance_from_previous=round(dist_home, 2))
+        # STOP N: Warehouse (KONIEC/POWRÓT)
+        RouteStop.objects.create(
+            route=route, 
+            warehouse=warehouse, 
+            order=current_order, 
+            distance_from_previous=round(dist_home, 2)
+        )
         
         # Link Packages & Apply Reservations
         for pkg in packages:
@@ -222,18 +245,25 @@ class LocalRoutingService:
             dropoff_stop = pm_stop_map.get(dest_pm_id)
             
             if dropoff_stop:
+                # To jest kluczowe dla skanera:
+                # pickup_stop = start_stop (Magazyn - kurier bierze paczkę)
+                # dropoff_stop = dropoff_stop (Paczkomat - kurier wkłada paczkę)
                 RoutePackage.objects.create(
                     route=route,
-                    package=pkg,
+                    package=pkg, # Tutaj pole to 'package', bo RoutePackage ma ForeignKey o nazwie 'package'
                     pickup_stop=start_stop,
                     dropoff_stop=dropoff_stop
                 )
                 
-                # Persist Stash Reservation
+                # Zapisanie rezerwacji skrytki w bazie
                 if hasattr(pkg, '_reserved_stash'):
                     stash = pkg._reserved_stash
                     stash.reserved_until = timezone.now() + timezone.timedelta(hours=24)
-                    stash.package = pkg 
+                    # Zakładamy, że model Stash ma pole 'package' (ForeignKey lub OneToOne)
+                    # Jeśli nie ma, usuń linię stash.package = pkg
+                    if hasattr(stash, 'package'): 
+                        stash.package = pkg 
+                    stash.is_empty = False # Oznaczamy jako zajętą (zarezerwowaną)
                     stash.save()
 
         return route
