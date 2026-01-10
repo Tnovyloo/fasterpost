@@ -31,7 +31,8 @@ export default function Header() {
           try {
             const roleRes = await api.get("/accounts/user/role/");
             setIsAdmin(roleRes.data.is_admin || false);
-            setIsCourier(roleRes.data.role === "courier" || false);
+            const role = roleRes.data.role;
+            setIsCourier(role === "courier" || role === "warehouse");
           } catch (err) {
             console.error("Role check failed:", err);
             setIsAdmin(false);
