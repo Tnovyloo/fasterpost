@@ -26,6 +26,7 @@ export default function ParcelMapSendPackage({
     destination,
     setOrigin,
     setDestination,
+    hideOriginSelect = false,
 }) {
     // Your API fields are explicitly: latitude, longitude
     const getLat = (pm) => pm.latitude;
@@ -69,12 +70,14 @@ export default function ParcelMapSendPackage({
                             <div className="space-y-2">
                                 <p className="font-semibold">{pm.name}</p>
 
-                                <button
-                                    className="bg-green-600 text-white px-3 py-1 rounded-lg w-full"
-                                    onClick={() => setOrigin(pm)}
-                                >
-                                    Set as Origin
-                                </button>
+                                {!hideOriginSelect && (
+                                    <button
+                                        className="bg-green-600 text-white px-3 py-1 rounded-lg w-full"
+                                        onClick={() => setOrigin(pm)}
+                                    >
+                                        Set as Origin
+                                    </button>
+                                )}
 
                                 <button
                                     className="bg-red-600 text-white px-3 py-1 rounded-lg w-full"

@@ -1,57 +1,44 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
-import L from "leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
-// Fix Leaflet default icon issue in Next.js
+// Fix for Leaflet default marker icon in Next.js/Webpack
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-function MapEvents({ setPosition, readonly }) {
-  useMapEvents({
+function LocationMarker({ position, onLocationSelect }) {
+  const map = useMapEvents({
     click(e) {
-      if (!readonly) {
-        setPosition([e.latlng.lat, e.latlng.lng]);
-      }
+      onLocationSelect(e.latlng);
     },
   });
-  return null;
+
+  useEffect(() => {
+    if (position) {
+      map.flyTo(position, map.getZoom());
+    }
+  }, [position, map]);
+
+  return position ? <Marker position={position} /> : null;
 }
 
-export default function MapPicker({ position, setPosition, readonly = false }) {
+export default function MapPicker({ lat, lng, onLocationSelect }) {
+  const position = [lat, lng];
+
   return (
-    <div className="h-96 rounded-lg overflow-hidden border shadow-md relative">
-      <MapContainer center={position} zoom={15} style={{ height: "100%", width: "100%", zIndex: 0}}>
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
-        />
-        <MapEvents setPosition={setPosition} readonly={readonly} />
-
-        {position && (
-          <Marker position={position}>
-            <Popup>
-              Selected Location
-              <br />
-              Lat: {position[0].toFixed(6)}
-              <br />
-              Lng: {position[1].toFixed(6)}
-            </Popup>
-          </Marker>
-        )}
-      </MapContainer>
-
-      {!readonly && (
-        <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-white text-center py-2 text-sm font-medium z-10">
-          Click on the map to set location
-        </div>
-      )}
-    </div>
+    <MapContainer center={position} zoom={13} style={{ height: "100%", width: "100%" }}>
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <LocationMarker position={position} onLocationSelect={onLocationSelect} />
+    </MapContainer>
   );
 }

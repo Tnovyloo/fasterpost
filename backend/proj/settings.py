@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "logistics",
     "packages",
     "payments",
+    "business",
     "drf_spectacular",
 ]
 

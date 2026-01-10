@@ -44,5 +44,9 @@ urlpatterns = [
         RetryPaymentView.as_view(),
         name="retry-payment",
     ),
-    path('public/track/<str:query>/', views_public.PublicTrackingView.as_view(), name='public-track'),
+    path(
+        "public/track/<str:query>/",
+        views_public.PublicTrackingView.as_view(),
+        name="public-track",
+    ),
 ]

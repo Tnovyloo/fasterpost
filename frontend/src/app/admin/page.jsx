@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { Package, Warehouse, Truck, Users, Home, LogOut, Menu, Briefcase } from "lucide-react";
+import Header from "@/app/components/Header";
 import { useState } from "react";
 import { 
   Package, 
@@ -69,6 +72,13 @@ export default function AdminDashboard() {
       icon: <Users className="w-5 h-5" />,
       color: "bg-pink-600",
       view: <UsersView goBack={goBack} />,
+    },
+    {
+      id: "business",
+      title: "Business Requests",
+      href: "/admin/business",
+      icon: <Briefcase className="w-5 h-5" />,
+      color: "bg-orange-600",
     },
   ];
 

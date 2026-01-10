@@ -291,6 +291,8 @@ class StripeWebhookView(APIView):
                 self.handle_payment_succeeded(event["data"]["object"])
             elif event["type"] == "payment_intent.payment_failed":
                 self.handle_payment_failed(event["data"]["object"])
+            elif event["type"] == "checkout.session.completed":
+                self.handle_checkout_session_completed(event["data"]["object"])
             elif event["type"] == "payment_intent.canceled":
                 self.handle_payment_canceled(event["data"]["object"])
             else:
@@ -303,13 +305,44 @@ class StripeWebhookView(APIView):
 
         return HttpResponse(status=200)
 
+    def handle_checkout_session_completed(self, session):
+        """Handle bulk payment completion"""
+        print(f"[WEBHOOK] Processing checkout.session.completed: {session['id']}")
+        metadata = session.get("metadata", {})
+
+        if metadata.get("type") == "business_bulk_payment":
+            payment_ids_str = metadata.get("payment_ids", "")
+            if payment_ids_str:
+                payment_ids = payment_ids_str.split(",")
+                payment_intent_id = session.get("payment_intent")
+
+                # Update all related payments
+                from django.apps import apps
+
+                Payment = apps.get_model("payments", "Payment")
+                payments = Payment.objects.filter(id__in=payment_ids)
+
+                updated_count = payments.update(
+                    status=Payment.PaymentStatus.SUCCEEDED,
+                    stripe_payment_intent_id=payment_intent_id,
+                    paid_at=timezone.now(),
+                )
+                print(
+                    f"[WEBHOOK] Bulk payment succeeded. Updated {updated_count} payments."
+                )
+
     def handle_payment_succeeded(self, payment_intent):
         """Handle successful payment"""
         print(f"[WEBHOOK] Processing payment_intent.succeeded: {payment_intent['id']}")
-        try:
-            payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
-            print(f"[WEBHOOK] Found payment: {payment.id}")
 
+        payments = Payment.objects.filter(stripe_payment_intent_id=payment_intent["id"])
+        if not payments.exists():
+            print(
+                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
+            )
+            return
+
+        for payment in payments:
             payment.status = Payment.PaymentStatus.SUCCEEDED
             payment.paid_at = timezone.now()
             payment.payment_method = payment_intent.get("payment_method")
@@ -328,23 +361,21 @@ class StripeWebhookView(APIView):
             # )
             # print(f"[WEBHOOK] Actualization created for package {payment.package.id}")
             print(f"[WEBHOOK] ✓ Payment succeeded for package {payment.package.id}")
-        except Payment.DoesNotExist:
-            print(
-                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
-            )
-        except Exception as e:
-            print(f"[WEBHOOK ERROR] Error in handle_payment_succeeded: {e}")
-            import traceback
-
-            traceback.print_exc()
 
     def handle_payment_failed(self, payment_intent):
         """Handle failed payment"""
         print(
             f"[WEBHOOK] Processing payment_intent.payment_failed: {payment_intent['id']}"
         )
-        try:
-            payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
+
+        payments = Payment.objects.filter(stripe_payment_intent_id=payment_intent["id"])
+        if not payments.exists():
+            print(
+                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
+            )
+            return
+
+        for payment in payments:
             payment.status = Payment.PaymentStatus.FAILED
             payment.failure_reason = payment_intent.get("last_payment_error", {}).get(
                 "message"
@@ -353,57 +384,48 @@ class StripeWebhookView(APIView):
 
             # Release the stash
             package = payment.package
-            stash = package.origin_postmat.stashes.filter(
-                size=package.size, is_empty=False
-            ).first()
+            if package.origin_postmat:
+                stash = package.origin_postmat.stashes.filter(
+                    size=package.size, is_empty=False
+                ).first()
 
-            if stash:
-                stash.is_empty = True
-                stash.reserved_until = None
-                stash.save()
-                print(f"[WEBHOOK] Stash released for failed payment")
+                if stash:
+                    stash.is_empty = True
+                    stash.reserved_until = None
+                    stash.save()
+                    print(f"[WEBHOOK] Stash released for failed payment")
 
             print(f"[WEBHOOK] ✓ Payment marked as failed for package {package.id}")
-        except Payment.DoesNotExist:
-            print(
-                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
-            )
-        except Exception as e:
-            print(f"[WEBHOOK ERROR] Error in handle_payment_failed: {e}")
-            import traceback
-
-            traceback.print_exc()
 
     def handle_payment_canceled(self, payment_intent):
         """Handle canceled payment"""
         print(f"[WEBHOOK] Processing payment_intent.canceled: {payment_intent['id']}")
-        try:
-            payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
+
+        payments = Payment.objects.filter(stripe_payment_intent_id=payment_intent["id"])
+        if not payments.exists():
+            print(
+                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
+            )
+            return
+
+        for payment in payments:
             payment.status = Payment.PaymentStatus.CANCELLED
             payment.save()
 
             # Release the stash
             package = payment.package
-            stash = package.origin_postmat.stashes.filter(
-                size=package.size, is_empty=False
-            ).first()
+            if package.origin_postmat:
+                stash = package.origin_postmat.stashes.filter(
+                    size=package.size, is_empty=False
+                ).first()
 
-            if stash:
-                stash.is_empty = True
-                stash.reserved_until = None
-                stash.save()
-                print(f"[WEBHOOK] Stash released for canceled payment")
+                if stash:
+                    stash.is_empty = True
+                    stash.reserved_until = None
+                    stash.save()
+                    print(f"[WEBHOOK] Stash released for canceled payment")
 
             print(f"[WEBHOOK] ✓ Payment marked as canceled for package {package.id}")
-        except Payment.DoesNotExist:
-            print(
-                f"[WEBHOOK ERROR] Payment not found for intent {payment_intent['id']}"
-            )
-        except Exception as e:
-            print(f"[WEBHOOK ERROR] Error in handle_payment_canceled: {e}")
-            import traceback
-
-            traceback.print_exc()
 
 
 class UserPaymentsView(APIView):
