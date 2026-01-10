@@ -1,50 +1,77 @@
-// src/app/admin/page.jsx
 "use client";
 
 import Link from "next/link";
 import { Package, Warehouse, Truck, Users, Home, LogOut, Menu, Briefcase } from "lucide-react";
 import Header from "@/app/components/Header";
 import { useState } from "react";
+import { 
+  Package, 
+  Warehouse, 
+  Truck, 
+  Users, 
+  Home, 
+  Menu, 
+  Map, 
+  BarChart3 
+} from "lucide-react";
+import Header from "@/app/components/Header";
+
+// Import Views
+import DashboardHome from "./views/DashboardHome";
+import PostmatsView from "./views/PostmatsView";
+import WarehousesView from "./views/WarehousesView";
+import PackagesView from "./views/PackagesView";
+import UsersView from "./views/UsersView";
+import RoutesView from "./views/RoutesView";
 
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState("home");
+
+  const goBack = () => setActiveTab("home");
 
   const menuItems = [
     {
       id: "home",
       title: "Dashboard Home",
-      href: "/admin",
       icon: <Home className="w-5 h-5" />,
       color: "bg-indigo-600",
+      view: <DashboardHome setActiveTab={setActiveTab} />,
+    },
+    {
+      id: "routes",
+      title: "Logistics Control",
+      icon: <Map className="w-5 h-5" />,
+      color: "bg-orange-600",
+      view: <RoutesView goBack={goBack} />,
     },
     {
       id: "postmats",
       title: "Postmats & Stashes",
-      href: "/admin/postmats",
       icon: <Package className="w-5 h-5" />,
       color: "bg-blue-600",
-      badge: "Active",
+      view: <PostmatsView goBack={goBack} />,
     },
     {
       id: "warehouses",
       title: "Warehouses",
-      href: "/admin/logistics",  // ← Unique path
       icon: <Warehouse className="w-5 h-5" />,
       color: "bg-green-600",
+      view: <WarehousesView goBack={goBack} />,
     },
     {
       id: "packages",
       title: "All Packages",
-      href: "/admin/packages",
       icon: <Package className="w-5 h-5" />,
       color: "bg-purple-600",
+      view: <PackagesView goBack={goBack} />,
     },
     {
-      id: "accounts",
+      id: "users",
       title: "User Accounts",
-      href: "/admin/users",
       icon: <Users className="w-5 h-5" />,
       color: "bg-pink-600",
+      view: <UsersView goBack={goBack} />,
     },
     {
       id: "business",
@@ -55,108 +82,92 @@ export default function AdminDashboard() {
     },
   ];
 
-  return (
-    <>
-      <div className="min-h-screen bg-gray-50 flex mt-10">
-        <Header />
+  const activeContent = menuItems.find(item => item.id === activeTab)?.view || <DashboardHome setActiveTab={setActiveTab} />;
 
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <Header />
+      
+      <div className="flex flex-1 pt-16 h-[calc(100vh-64px)] overflow-hidden">
         {/* Sidebar */}
-        <div className={`${sidebarOpen ? "w-72" : "w-20"} transition-all duration-300 bg-white shadow-lg border-r border-gray-200 flex flex-col mt-4`}>
-          {/* Logo */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 text-white p-3 rounded-lg">
-                <Package className="w-6 h-6" />
-              </div>
-              {sidebarOpen && (
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-800">Admin Panel</h1>
-                  <p className="text-xs text-gray-500">Logistics Control Center</p>
-                </div>
-              )}
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="ml-auto text-gray-500 hover:text-gray-700"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
+        <aside 
+          className={`${
+            sidebarOpen ? "w-72" : "w-20"
+          } transition-all duration-300 bg-white shadow-xl z-20 flex flex-col border-r border-gray-200`}
+        >
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <div className={`flex items-center gap-3 ${!sidebarOpen && "justify-center w-full"}`}>
+               <div className="bg-indigo-600 text-white p-2 rounded-lg shrink-0">
+                  <BarChart3 className="w-6 h-6" />
+               </div>
+               {sidebarOpen && (
+                 <div>
+                   <h1 className="font-bold text-gray-800 leading-tight">Admin Panel</h1>
+                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">Logistics OS</p>
+                 </div>
+               )}
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          {/* Menu */}
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {menuItems.map((item) => (
-              <Link
-                key={item.id}  // ← NOW UNIQUE (id instead of href)
-                href={item.href}
-                className="group relative flex items-center gap-4 px-4 py-3 rounded-xl transition-all hover:bg-gray-50 hover:shadow-sm"
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full group relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200
+                  ${activeTab === item.id 
+                    ? "bg-gray-50 text-gray-900 shadow-sm ring-1 ring-gray-200" 
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }
+                `}
               >
-                <div className={`${item.color} text-white p-2.5 rounded-lg`}>
+                <div className={`
+                  ${activeTab === item.id ? item.color : "bg-gray-100 group-hover:bg-white"} 
+                  ${activeTab === item.id ? "text-white" : "text-gray-500"}
+                  p-2 rounded-lg transition-colors
+                `}>
                   {item.icon}
                 </div>
+                
                 {sidebarOpen && (
-                  <>
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
-                      {item.title}
-                    </span>
-                    {item.badge && (
-                      <span className="ml-auto bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
-                        {item.badge}
-                      </span>
-                    )}
-                  </>
+                  <span className="font-medium text-sm">{item.title}</span>
                 )}
+
+                {/* Tooltip for collapsed state */}
                 {!sidebarOpen && (
-                  <div className="absolute left-full ml-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                  <div className="absolute left-full ml-4 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap pointer-events-none">
                     {item.title}
                   </div>
                 )}
-              </Link>
+                
+                {/* Active Indicator Line */}
+                {activeTab === item.id && sidebarOpen && (
+                   <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-l-full ${item.color.replace('bg-', 'bg-opacity-50 ')}`} />
+                )}
+              </button>
             ))}
           </nav>
 
-          {/* Logout */}
-          <div className="p-4 border-t border-gray-200">
-            <button className="w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-red-50 text-red-600 transition">
-              <LogOut className="w-5 h-5" />
-              {sidebarOpen && <span className="font-medium">Logout</span>}
-            </button>
+          {/* Footer Controls */}
+          <div className="p-3 border-t border-gray-100">
+             <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="w-full flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition"
+             >
+                <Menu className="w-5 h-5" />
+             </button>
           </div>
-        </div>
+        </aside>
 
-        {/* Main Content */}
-        <div className="flex-1 p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-sm border p-8 mb-8">
-              <h2 className="text-4xl font-bold text-gray-800 mb-4">
-                Welcome back, Admin
-              </h2>
-              <p className="text-lg text-gray-600">
-                Select a module from the sidebar to begin.
-              </p>
-            </div>
-
-            {/* Quick Actions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Link href="/admin/postmats" className="bg-blue-50 border-2 border-blue-200 rounded-xl p-8 text-center hover:shadow-lg hover:border-blue-400 transition">
-                <Package className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-                <p className="text-xl font-bold text-gray-800">Postmats</p>
-                <p className="text-gray-600 mt-2">Manage lockers & stashes</p>
-              </Link>
-              <Link href="/admin/logistics" className="bg-green-50 border-2 border-green-200 rounded-xl p-8 text-center hover:shadow-lg hover:border-green-400 transition">
-                <Warehouse className="w-16 h-16 text-green-600 mx-auto mb-4" />
-                <p className="text-xl font-bold text-gray-800">Warehouses</p>
-                <p className="text-gray-600 mt-2">Hubs & inventory</p>
-              </Link>
-              <Link href="/admin/packages" className="bg-purple-50 border-2 border-purple-200 rounded-xl p-8 text-center hover:shadow-lg hover:border-purple-400 transition">
-                <Package className="w-16 h-16 text-purple-600 mx-auto mb-4" />
-                <p className="text-xl font-bold text-gray-800">Packages</p>
-                <p className="text-gray-600 mt-2">Track all shipments</p>
-              </Link>
-            </div>
-          </div>
-        </div>
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto bg-gray-50/50 p-6 scroll-smooth">
+           <div className="max-w-[1600px] mx-auto animate-fade-in pb-20">
+              {activeContent}
+           </div>
+        </main>
       </div>
-    </>
+    </div>
   );
 }

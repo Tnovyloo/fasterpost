@@ -8,7 +8,7 @@ from django.db.models import Q
 
 from logistics.models import Route, RouteStop, RoutePackage
 from logistics.serializers.warehouse_courier_serializers import CourierRouteDetailSerializer
-from packages.models import Actualization
+from packages.models import Actualization, Package
 
 class IsLogisticsCourier(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -20,6 +20,66 @@ class CourierRouteViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return Route.objects.filter(courier=self.request.user).order_by('-created_at')
+    
+    @action(detail=True, methods=['post'], url_path='scan-package')
+    def scan_package(self, request, pk=None):
+        """
+        Obsługa skanowania z obsługą błędów 500.
+        """
+        # 1. Pobieranie trasy
+        route = get_object_or_404(Route, pk=pk)
+
+        # 2. Security check
+        if route.courier != request.user:
+             return Response({'error': 'To nie jest Twoja trasa.'}, status=403)
+
+        package_id = request.data.get('package_id')
+        stop_id = request.data.get('stop_id')
+        action_type = request.data.get('action')
+
+        if not all([package_id, stop_id, action_type]):
+            return Response({'error': 'Brakuje danych (package_id, stop_id, action)'}, status=400)
+
+        try:
+            stop = route.stops.get(id=stop_id)
+            package = Package.objects.get(id=package_id)
+        except RouteStop.DoesNotExist:
+            return Response({'error': 'Przystanek nie należy do tej trasy'}, status=404)
+        except Package.DoesNotExist:
+            return Response({'error': 'Paczka nie znaleziona'}, status=404)
+
+        # --- BLOK ZABEZPIECZONY TRY/EXCEPT DLA TWORZENIA ACTUALIZATION ---
+        try:
+            # Ustalanie statusu
+            if action_type == 'drop':
+                if stop.postmat:
+                    new_status = 'placed_in_stash'
+                elif stop.warehouse:
+                    new_status = 'in_warehouse'
+                else:
+                    new_status = 'delivered'
+            elif action_type == 'pick':
+                new_status = 'in_transit'
+            else:
+                return Response({'error': 'Nieznana akcja'}, status=400)
+
+            # POPRAWKA: Używamy nazw pól zdefiniowanych w Twoim models.py (z końcówką _id)
+            Actualization.objects.create(
+                package_id=package,              # ZMIANA: package -> package_id
+                status=new_status,
+                courier_id=request.user,         # ZMIANA: courier -> courier_id
+                warehouse_id=stop.warehouse if stop.warehouse else None, # ZMIANA: warehouse -> warehouse_id
+            )
+            
+            return Response({'status': 'success', 'new_state': new_status})
+
+        except Exception as e:
+            # Ten blok wyłapie błąd 500 i pokaże go w konsoli
+            import traceback
+            print("!!! BŁĄD WEWNĘTRZNY SCAN_PACKAGE !!!")
+            print(f"Błąd: {str(e)}")
+            traceback.print_exc() # Drukuje pełny stack trace do konsoli
+            return Response({'error': f'Błąd serwera: {str(e)}'}, status=500)
 
     @action(detail=False, methods=['get'])
     def current(self, request):
