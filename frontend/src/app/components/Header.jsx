@@ -108,7 +108,7 @@ export default function Header() {
             <>
               <NavLink href="/user">Account</NavLink>
               <NavLink href="/send-package">Send package</NavLink>
-              <NavLink href="/user/settings">Settings</NavLink>
+              {/* <NavLink href="/user/settings">Settings</NavLink> */}
               {isAdmin && (
                 <>
                   <NavLink href="/admin">Admin</NavLink>

@@ -99,6 +99,15 @@ export default function MyParcelsView() {
 
     const handleRetryPayment = async (packageId, e) => {
         if(e) e.stopPropagation();
+
+        // Ensure the details panel is open for this package so the payment form is visible
+        if (selectedParcel?.id !== packageId) {
+            const parcel = parcels.find(p => p.id === packageId);
+            if (parcel) {
+                await handleViewDetails(parcel);
+            }
+        }
+
         try {
             const response = await api.post(`/api/packages/payments/retry/${packageId}/`);
             setClientSecret(response.data.payment.client_secret);
@@ -210,7 +219,18 @@ export default function MyParcelsView() {
                                             <p className="text-xs text-gray-500 font-mono">{p.pickup_code.slice(0, 8)}...</p>
                                         </div>
                                     </div>
-                                    {getStatusBadge(p.latest_status)}
+                                    <div className="flex items-center gap-2">
+                                        {p.payment_status !== 'succeeded' && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setEditingPackage(p); }}
+                                                className="text-gray-400 hover:text-blue-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="Edit Package"
+                                            >
+                                                ✏️
+                                            </button>
+                                        )}
+                                        {getStatusBadge(p.latest_status)}
+                                    </div>
                                 </div>
 
                                 <div className="flex justify-between items-center text-sm text-gray-600 border-t border-gray-100 pt-3 mt-2">
@@ -235,17 +255,6 @@ export default function MyParcelsView() {
                                             {p.payment_status === 'pending' ? 'Pay Now' : 'Retry'}
                                         </button>
                                     </div>
-                                )}
-                                
-                                {/* Edit Button */}
-                                {p.payment_status !== 'succeeded' && (
-                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); setEditingPackage(p); }}
-                                        className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Edit Package"
-                                     >
-                                        ✏️
-                                     </button>
                                 )}
                             </div>
                         ))}

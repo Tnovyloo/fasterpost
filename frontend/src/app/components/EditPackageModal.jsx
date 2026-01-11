@@ -138,8 +138,19 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
 
     } catch (err) {
       console.error("Submit error:", err);
-      const errorMsg = err.response?.data?.error || err.message || "Operation failed.";
-      setMessage({ type: "error", text: errorMsg });
+
+      let errorText = err.message || "Operation failed.";
+
+      if (err.response?.data) {
+        if (typeof err.response.data === "string") {
+          errorText = err.response.data;
+        } else if (Array.isArray(err.response.data)) {
+          errorText = err.response.data.join(", ");
+        } else if (typeof err.response.data === "object") {
+          errorText = Object.values(err.response.data).flat().join(", ");
+        }
+      }
+      setMessage({ type: "error", text: errorText });
     } finally {
       setLoading(false);
     }
