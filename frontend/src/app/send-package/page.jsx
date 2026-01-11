@@ -566,7 +566,6 @@ export default function SendPackagePage() {
               <div className="bg-green-100 border border-green-400 p-4 rounded-xl mt-4 text-black">
                 <p className="font-semibold text-green-700">Package Confirmed!</p>
                 <p><b>ID:</b> {response.package_id}</p>
-                <p><b>Unlock Code:</b> {response.unlock_code}</p>
                 <p><b>Using Postmat:</b> {response.origin_postmat}</p>
                 <p className="text-sm mt-2 text-green-600">
                   You can now drop off your package at the postmat.

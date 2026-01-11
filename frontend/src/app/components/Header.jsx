@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import api from "@/axios/api";
-import { Menu, X, Shield, Truck, Briefcase, LogOut } from "lucide-react";
+import { Menu, X, Shield, Truck, Briefcase, LogOut, PackageOpen } from "lucide-react";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -118,6 +118,7 @@ export default function Header() {
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-1">
           <NavLink href="/" active={isActive("/")}>Home</NavLink>
+          <NavLink href="/pickup-package" active={isActive("/pickup-package")} icon={<PackageOpen className="w-4 h-4" />}>Pickup</NavLink>
           
           {!isLoggedIn ? (
             <>
@@ -177,6 +178,7 @@ export default function Header() {
         <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-gray-100 shadow-xl animate-in slide-in-from-top-2">
             <div className="p-4 flex flex-col gap-2">
                 <MobileNavLink href="/" onClick={() => setMenuOpen(false)}>Home</MobileNavLink>
+                <MobileNavLink href="/pickup-package" onClick={() => setMenuOpen(false)}>Pickup Package</MobileNavLink>
                 {!isLoggedIn ? (
                     <>
                         <MobileNavLink href="/login" onClick={() => setMenuOpen(false)}>Login</MobileNavLink>

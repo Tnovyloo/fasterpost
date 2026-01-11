@@ -6,7 +6,8 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import api from "@/axios/api";
 // Added icons for the business section
-import { Building2, Briefcase, ArrowRight, ShieldCheck, Zap, Search, Package, MapPin, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Building2, Briefcase, ArrowRight, ShieldCheck, Zap, Search, Package, MapPin, Clock, ChevronDown, ChevronUp, Lock, User, PackageOpen } from "lucide-react";
+import ParcelTimeline from "./components/ParcelTimeline";
 
 export default function Page() {
   const [query, setQuery] = useState("");
@@ -34,7 +35,9 @@ export default function Page() {
     setPackageData(null);
 
     try {
-      const res = await api.get(`/api/packages/public/track/${query}/`);
+      const cleanQuery = query.trim().toUpperCase();
+      // 1. Fetch public data first
+      const res = await api.get(`/api/packages/public/track/${cleanQuery}/`);
       setPackageData(res.data);
     } catch (err) {
       setError(err.response?.status === 404 ? "Package not found." : "System error.");
@@ -104,6 +107,14 @@ export default function Page() {
                     </div>
                 </div>
 
+                {/* Pickup Link */}
+                <div className="mb-12 -mt-8 animate-fade-in-up delay-300">
+                    <Link href="/pickup-package" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-blue-600 transition-colors bg-white/50 px-4 py-2 rounded-full border border-gray-100 hover:bg-white hover:shadow-sm">
+                        <PackageOpen className="w-4 h-4" />
+                        Got a pickup code? Collect your package here
+                    </Link>
+                </div>
+
                 {/* Tracking Results */}
                 {error && (
                     <div className="max-w-md mx-auto mb-8 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 font-medium animate-in fade-in slide-in-from-bottom-2">
@@ -112,39 +123,86 @@ export default function Page() {
                 )}
 
                 {packageData && (
-                    <div className="max-w-2xl mx-auto mb-16 text-left bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-                        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                    <div className="max-w-3xl mx-auto mb-16 text-left bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 ring-1 ring-gray-900/5">
+                        {/* Header */}
+                        <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tracking ID</p>
-                                <p className="text-xl font-mono font-bold text-gray-900">{packageData.pickup_code}</p>
+                                <div className="flex items-center gap-3 mb-1">
+                                    <span className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                        <Package className="w-5 h-5" />
+                                    </span>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tracking ID</p>
+                                </div>
+                                <p className="text-2xl font-mono font-black text-gray-900 tracking-tight">{packageData.pickup_code}</p>
                             </div>
                             <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                                packageData.latest_status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                                packageData.latest_status === 'delivered' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
                             }`}>
                                 {packageData.latest_status?.replace(/_/g, " ")}
                             </div>
                         </div>
-                        <div className="p-6 grid grid-cols-2 gap-6">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">From</p>
-                                <p className="font-bold text-gray-900">{packageData.origin_postmat_name}</p>
+
+                        {/* Route Info */}
+                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                            <div className="relative z-10">
+                                <p className="text-sm font-bold text-gray-400 uppercase mb-2 flex items-center gap-2">
+                                    <MapPin className="w-4 h-4" /> Origin
+                                </p>
+                                <p className="text-lg font-bold text-gray-900">{packageData.origin_postmat_name || "Unknown Origin"}</p>
+                                <p className="text-sm text-gray-500">{packageData.origin_postmat_address}</p>
                             </div>
-                            <div className="text-right">
-                                <p className="text-sm text-gray-500 mb-1">To</p>
-                                <p className="font-bold text-gray-900">{packageData.destination_postmat_name}</p>
+                            <div className="relative z-10 md:text-right">
+                                <p className="text-sm font-bold text-gray-400 uppercase mb-2 flex items-center gap-2 md:justify-end">
+                                    <MapPin className="w-4 h-4" /> Destination
+                                </p>
+                                <p className="text-lg font-bold text-gray-900">{packageData.destination_postmat_name || "Unknown Destination"}</p>
+                                <p className="text-sm text-gray-500">{packageData.destination_postmat_address}</p>
                             </div>
+                            
+                            {/* Connector Line (Desktop) */}
+                            <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent border-t border-dashed border-gray-300"></div>
                         </div>
-                        {/* Simple Progress Bar */}
-                        <div className="px-6 pb-8">
-                             <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
-                                <div 
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-1000" 
-                                    style={{ width: packageData.latest_status === 'delivered' ? '100%' : packageData.latest_status === 'created' ? '10%' : '50%' }}
-                                ></div>
-                             </div>
-                             <p className="text-xs text-center text-gray-400">
-                                {packageData.latest_status === 'delivered' ? 'Package Delivered' : 'In Transit'}
-                             </p>
+
+                        {/* Sensitive Data / Owner View */}
+                        {packageData.isOwner ? (
+                            <div className="px-8 py-6 bg-blue-50/50 border-y border-blue-100 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <div>
+                                    <p className="text-xs font-bold text-blue-400 uppercase mb-1">Unlock Code</p>
+                                    <p className="font-mono text-xl font-bold text-blue-900 tracking-widest">{packageData.unlock_code || "••••"}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-blue-400 uppercase mb-1">Receiver</p>
+                                    <p className="font-medium text-gray-900">{packageData.receiver_name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-blue-400 uppercase mb-1">Contact</p>
+                                    <p className="font-medium text-gray-900">{packageData.receiver_phone}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            !isLoggedIn && (
+                                <div className="px-8 py-4 bg-gray-50 border-y border-gray-100 flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3 text-gray-600 text-sm">
+                                        <Lock className="w-4 h-4" />
+                                        <span>Login to view unlock code and full details</span>
+                                    </div>
+                                    <Link href="/login" className="text-sm font-bold text-blue-600 hover:underline">Login</Link>
+                                </div>
+                            )
+                        )}
+
+                        {/* Timeline */}
+                        <div className="p-8 bg-white">
+                             <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-6">Shipment Progress</h4>
+                             <ParcelTimeline 
+                                actualizations={packageData.isOwner ? (packageData.actualizations || []) : (packageData.actualizations || []).slice(0, 3)} 
+                             />
+                             {!packageData.isOwner && (packageData.actualizations || []).length > 3 && (
+                                <div className="mt-6 text-center bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                    <p className="text-xs text-gray-500 mb-1">Showing recent updates only</p>
+                                    <Link href="/login" className="text-blue-600 font-bold hover:underline text-xs">Login to view full history</Link>
+                                </div>
+                             )}
                         </div>
                     </div>
                 )}

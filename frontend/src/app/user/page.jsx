@@ -6,6 +6,7 @@ import Footer from "@/app/components/Footer";
 import DashboardSidebar from "@/app/components/DashboardSidebar";
 import MyParcels from "./views/MyParcels";
 import Settings from "./views/Settings";
+import IncomingParcels from "./views/IncomingParcels";
 import EditPackageModal from "@/app/components/EditPackageModal"; // Reusing for creation
 
 export default function UserDashboardPage() {
@@ -17,6 +18,8 @@ export default function UserDashboardPage() {
     switch (activeView) {
       case "parcels":
         return <MyParcels key={refreshTrigger} />;
+      case "incoming":
+        return <IncomingParcels />;
       case "settings":
         return <Settings />;
       default:

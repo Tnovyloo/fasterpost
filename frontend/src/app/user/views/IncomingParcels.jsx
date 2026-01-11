@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements } from "@stripe/react-stripe-js";
 import dynamic from "next/dynamic";
 import api from "@/axios/api";
 
 // Components
-import PaymentForm from "@/app/components/PaymentForm";
-import EditPackageModal from "@/app/components/EditPackageModal";
 import ParcelTimeline from "@/app/components/ParcelTimeline";
 
 // Dynamic Map import
@@ -17,9 +13,7 @@ const ParcelMap = dynamic(() => import('@/app/components/ParcelMapSendPackage'),
     loading: () => <div className="h-64 bg-gray-100 animate-pulse rounded-xl flex items-center justify-center text-gray-400">Loading Map...</div>,
 });
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-
-export default function MyParcelsView() {
+export default function IncomingParcelsView() {
     // Data State
     const [parcels, setParcels] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -29,11 +23,6 @@ export default function MyParcelsView() {
     const [detailLoading, setDetailLoading] = useState(false);
     const [postmatLocation, setPostmatLocation] = useState(null);
     const [banner, setBanner] = useState({ msg: "", type: "" });
-    
-    // Action State
-    const [retryingPayment, setRetryingPayment] = useState(null);
-    const [clientSecret, setClientSecret] = useState("");
-    const [editingPackage, setEditingPackage] = useState(null);
 
     useEffect(() => {
         loadData();
@@ -41,19 +30,18 @@ export default function MyParcelsView() {
 
     const loadData = async () => {
         try {
-            const res = await api.get("/api/packages/user/");
+            const res = await api.get("/api/packages/user/incoming/");
             setParcels(res.data);
             
             // If a parcel is selected, refresh its details too
             if (selectedParcel) {
                 const updatedParcel = res.data.find(p => p.id === selectedParcel.id);
                 if (updatedParcel) {
-                    // We might need to fetch full details again if the list view is partial
                     handleViewDetails(updatedParcel, true); 
                 }
             }
         } catch (e) {
-            console.error("Failed to load parcels", e);
+            console.error("Failed to load incoming parcels", e);
         } finally {
             setLoading(false);
         }
@@ -62,7 +50,6 @@ export default function MyParcelsView() {
     // --- Actions ---
 
     const handleViewDetails = async (parcel, refresh = false) => {
-        // Toggle off if clicking same, unless refreshing
         if (!refresh && selectedParcel?.id === parcel.id) {
             setSelectedParcel(null); 
             return;
@@ -70,7 +57,6 @@ export default function MyParcelsView() {
 
         setDetailLoading(true);
         if (!refresh) {
-            // Optimistic UI update while fetching details
             setSelectedParcel({ ...parcel, actualizations: [] }); 
             setPostmatLocation(null);
         }
@@ -80,7 +66,6 @@ export default function MyParcelsView() {
             const details = res.data;
             setSelectedParcel(details);
             
-            // Ensure coordinates are numbers for the Map component
             if (details.destination_postmat_lat && details.destination_postmat_long) {
                 setPostmatLocation({
                     lat: parseFloat(details.destination_postmat_lat),
@@ -97,45 +82,14 @@ export default function MyParcelsView() {
         }
     };
 
-    const handleRetryPayment = async (packageId, e) => {
-        if(e) e.stopPropagation();
-
-        // Ensure the details panel is open for this package so the payment form is visible
-        if (selectedParcel?.id !== packageId) {
-            const parcel = parcels.find(p => p.id === packageId);
-            if (parcel) {
-                await handleViewDetails(parcel);
-            }
-        }
-
-        try {
-            const response = await api.post(`/api/packages/payments/retry/${packageId}/`);
-            setClientSecret(response.data.payment.client_secret);
-            setRetryingPayment(packageId);
-        } catch (error) {
-            showBanner("Failed to initialize payment.", "error");
-        }
-    };
-
-    const handlePaymentSuccess = async (packageId) => {
-        setRetryingPayment(null);
-        setClientSecret("");
-        showBanner("Payment successful! You can now deposit the package.", "success");
-        
-        // Short delay to allow webhook to process on backend
-        setTimeout(() => {
-            loadData();
-        }, 1500); 
-    };
-
     const handleOpenStash = async (packageId) => {
-        if(!confirm("Open the locker now?")) return;
+        if(!confirm("Are you at the locker? Open it now?")) return;
         try {
-            const res = await api.post(`/api/packages/open-stash/${packageId}/`);
-            showBanner(res.data.message || "Stash opened!", "success");
+            const res = await api.post(`/api/packages/collect/${packageId}/`);
+            showBanner(res.data.message || "Package collected successfully!", "success");
             loadData();
         } catch (error) {
-            showBanner(error.response?.data?.error || "Failed to open stash.", "error");
+            showBanner(error.response?.data?.error || "Failed to collect package.", "error");
         }
     };
 
@@ -164,21 +118,18 @@ export default function MyParcelsView() {
         );
     };
 
-    if (loading) return <div className="text-center py-20 text-gray-500">Loading your parcels...</div>;
+    if (loading) return <div className="text-center py-20 text-gray-500">Loading incoming parcels...</div>;
 
     return (
         <div className="h-full flex flex-col">
             <div className="flex justify-between items-end mb-6 pb-4 border-b border-gray-100">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        Active Shipments
-                        <span className="bg-blue-100 text-blue-700 text-sm px-2 py-1 rounded-full">{parcels.length}</span>
+                        Incoming Shipments
+                        <span className="bg-purple-100 text-purple-700 text-sm px-2 py-1 rounded-full">{parcels.length}</span>
                     </h2>
-                    <p className="text-gray-500 text-sm mt-1">Manage and track your ongoing deliveries.</p>
+                    <p className="text-gray-500 text-sm mt-1">Track packages sent to you.</p>
                 </div>
-                <button onClick={() => setEditingPackage({})} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 transition active:scale-95">
-                    + New Package
-                </button>
             </div>
 
             {banner.msg && (
@@ -189,9 +140,9 @@ export default function MyParcelsView() {
 
             {parcels.length === 0 ? (
                 <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-                    <div className="text-6xl mb-4">📦</div>
-                    <p className="text-gray-500 text-lg font-medium">No packages found.</p>
-                    <p className="text-gray-400 text-sm">Use the "+ New Package" button to send your first item.</p>
+                    <div className="text-6xl mb-4">📬</div>
+                    <p className="text-gray-500 text-lg font-medium">No incoming packages found.</p>
+                    <p className="text-gray-400 text-sm">Packages sent to your email will appear here.</p>
                 </div>
             ) : (
                 <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[600px]">
@@ -205,57 +156,28 @@ export default function MyParcelsView() {
                                 className={`
                                     p-5 rounded-2xl border cursor-pointer transition-all duration-200 group relative
                                     ${selectedParcel?.id === p.id 
-                                    ? "bg-blue-50/50 border-blue-500 shadow-md ring-1 ring-blue-200" 
-                                    : "bg-white border-gray-100 hover:border-blue-200 hover:shadow-lg"} 
+                                    ? "bg-purple-50/50 border-purple-500 shadow-md ring-1 ring-purple-200" 
+                                    : "bg-white border-gray-100 hover:border-purple-200 hover:shadow-lg"} 
                                 `}
                             >
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm ${selectedParcel?.id === p.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-50 text-gray-500 group-hover:bg-blue-50 group-hover:text-blue-500'}`}>
-                                            📦
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm ${selectedParcel?.id === p.id ? 'bg-purple-100 text-purple-600' : 'bg-gray-50 text-gray-500 group-hover:bg-purple-50 group-hover:text-purple-500'}`}>
+                                            📥
                                         </div>
                                         <div>
-                                            <p className="font-bold text-gray-900">{p.receiver_name}</p>
+                                            <p className="font-bold text-gray-900">{p.sender_name || "Unknown Sender"}</p>
                                             <p className="text-xs text-gray-500 font-mono">{p.pickup_code.slice(0, 8)}...</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {p.payment_status !== 'succeeded' && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); setEditingPackage(p); }}
-                                                className="text-gray-400 hover:text-blue-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Edit Package"
-                                            >
-                                                ✏️
-                                            </button>
-                                        )}
                                         {getStatusBadge(p.latest_status)}
                                     </div>
                                 </div>
 
                                 <div className="flex justify-between items-center text-sm text-gray-600 border-t border-gray-100 pt-3 mt-2">
                                     <span className="truncate max-w-[200px]">{p.origin_postmat_name} ➔ {p.destination_postmat_name}</span>
-                                    <div className="flex flex-col items-end">
-                                         <span className="font-bold text-gray-900">${p.payment_amount}</span>
-                                         <span className={`text-[10px] uppercase font-bold ${
-                                            p.payment_status === 'succeeded' ? 'text-green-600' : 'text-orange-500'
-                                         }`}>
-                                            {p.payment_status}
-                                         </span>
-                                    </div>
                                 </div>
-
-                                {/* Inline Actions for Quick Payment */}
-                                {p.can_retry_payment && retryingPayment !== p.id && (
-                                    <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
-                                        <button 
-                                            onClick={(e) => handleRetryPayment(p.id, e)} 
-                                            className="px-4 py-1.5 bg-yellow-400 text-yellow-900 rounded-lg text-xs font-bold hover:bg-yellow-500 transition shadow-sm"
-                                        >
-                                            {p.payment_status === 'pending' ? 'Pay Now' : 'Retry'}
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>
@@ -276,28 +198,15 @@ export default function MyParcelsView() {
 
                                 <div className="p-8 overflow-y-auto flex-1 space-y-8 scrollbar-thin">
                                 
-                                    {/* Action Banner: RECEIVER - PICKUP */}
-                                    {selectedParcel.payment?.status === 'succeeded' && selectedParcel.latest_status === 'created' && (
+                                    {/* Action Banner: PICKUP */}
+                                    {selectedParcel.is_ready_for_pickup && (
                                         <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center shadow-inner">
                                             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">🔓</div>
-                                            <h4 className="text-green-800 font-bold text-lg mb-1">Ready for Pickup!</h4>
-                                            <p className="text-green-600 mb-4 text-sm">You are near the destination. Open it remotely?</p>
+                                            <h4 className="text-green-800 font-bold text-lg mb-1">Package Arrived!</h4>
+                                            <p className="text-green-600 mb-4 text-sm">The package is waiting for you at the destination locker.</p>
                                             <button onClick={() => handleOpenStash(selectedParcel.id)} className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 shadow-lg transition transform hover:scale-105 active:scale-95 w-full md:w-auto">
-                                                Open Locker Now
+                                                Open Locker & Pickup
                                             </button>
-                                        </div>
-                                    )}
-
-                                    {/* Payment Form Injection */}
-                                    {retryingPayment === selectedParcel.id && clientSecret && (
-                                        <div className="p-6 bg-yellow-50 rounded-2xl border border-yellow-200 animate-fade-in shadow-inner">
-                                            <div className="flex justify-between items-center mb-4">
-                                                <h3 className="font-bold text-yellow-900">Complete Payment</h3>
-                                                <button onClick={() => {setRetryingPayment(null); setClientSecret("")}} className="text-xs text-yellow-700 underline">Cancel</button>
-                                            </div>
-                                            <Elements options={{ clientSecret, appearance: { theme: 'stripe' }}} stripe={stripePromise}>
-                                                <PaymentForm onSuccess={() => handlePaymentSuccess(selectedParcel.id)} packageId={selectedParcel.id} />
-                                            </Elements>
                                         </div>
                                     )}
 
@@ -316,42 +225,24 @@ export default function MyParcelsView() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                                            <p className="text-xs font-bold text-blue-400 uppercase mb-2">Access Codes</p>
+                                        <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                                            <p className="text-xs font-bold text-purple-400 uppercase mb-2">Pickup Code</p>
                                             {selectedParcel.unlock_code ? (
                                                 <div className="text-center">
-                                                    <p className="font-mono text-xl font-bold text-blue-900 tracking-wider">{selectedParcel.unlock_code}</p>
-                                                    <p className="text-[10px] text-blue-400 mt-1">Show this at locker</p>
+                                                    <p className="font-mono text-xl font-bold text-purple-900 tracking-wider">{selectedParcel.unlock_code}</p>
+                                                    <p className="text-[10px] text-purple-400 mt-1">Use this code or app to open</p>
                                                 </div>
                                             ) : (
                                                 <div className="h-full flex items-center justify-center">
-                                                    {selectedParcel.payment?.status === 'succeeded' ? (
-                                                        <p className="text-blue-300 italic text-xs">Visible to receiver only</p>
-                                                    ) : (
-                                                        <p className="text-blue-300 italic text-xs">Generated after payment</p>
-                                                    )}
+                                                    <p className="text-purple-300 italic text-xs">Available upon delivery</p>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                     
-                                    {/* People */}
-                                    <div className="p-4 border border-gray-100 rounded-2xl flex flex-col md:flex-row gap-6 text-sm">
-                                        <div className="flex-1">
-                                            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Sender</p>
-                                            <p className="font-medium text-gray-900">{selectedParcel.sender_name || "Me"}</p>
-                                        </div>
-                                        <div className="w-px bg-gray-100 hidden md:block"></div>
-                                        <div className="flex-1">
-                                            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Receiver</p>
-                                            <p className="font-medium text-gray-900">{selectedParcel.receiver_name}</p>
-                                            <p className="text-gray-500 text-xs">{selectedParcel.receiver_phone}</p>
-                                        </div>
-                                    </div>
-
                                     {/* Map */}
                                     <div className="space-y-2">
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Destination Map</h4>
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Pickup Location</h4>
                                         {postmatLocation ? (
                                             <div className="h-48 w-full rounded-2xl border border-gray-200 overflow-hidden shadow-sm relative z-0">
                                                 <ParcelMap location={postmatLocation} />
@@ -373,19 +264,6 @@ export default function MyParcelsView() {
                         </div>
                     )}
                 </div>
-            )}
-
-            {/* Edit Modal */}
-            {editingPackage && (
-                <EditPackageModal 
-                    package={editingPackage} 
-                    onClose={() => setEditingPackage(null)}
-                    onSuccess={() => {
-                        setEditingPackage(null);
-                        loadData();
-                        showBanner("Package updated!", "success");
-                    }}
-                />
             )}
         </div>
     );

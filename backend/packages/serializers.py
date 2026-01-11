@@ -37,6 +37,8 @@ class PackageListSerializer(serializers.ModelSerializer):
     destination_postmat_name = serializers.CharField(
         source="destination_postmat.name", read_only=True
     )
+    sender_name = serializers.CharField(source="sender.username", read_only=True)
+    sender_email = serializers.CharField(source="sender.email", read_only=True)
     latest_status = serializers.CharField(read_only=True)
 
     # Payment information
@@ -51,6 +53,8 @@ class PackageListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "receiver_name",
+            "sender_name",
+            "sender_email",
             "receiver_phone",
             "receiver_email",
             "size",
@@ -118,6 +122,14 @@ class PackageListSerializer(serializers.ModelSerializer):
     def get_latest_status(self, obj):
         latest = obj.actualizations.order_by("-created_at").first()
         return latest.status if latest else "created"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        # Only receiver sees unlock code
+        if not request or request.user != instance.receiver_user:
+            data.pop("unlock_code", None)
+        return data
 
 
 class ActualizationSerializer(serializers.ModelSerializer):
@@ -537,6 +549,7 @@ class SenderPackageDetailSerializer(serializers.ModelSerializer):
     pickup_code = serializers.CharField(read_only=True)
     unlock_code = serializers.CharField(read_only=True)
     latest_status = serializers.SerializerMethodField()
+    is_ready_for_pickup = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
@@ -558,11 +571,33 @@ class SenderPackageDetailSerializer(serializers.ModelSerializer):
             "latest_status",
             "pickup_code",
             "unlock_code",
+            "is_ready_for_pickup",
         ]
 
     def get_latest_status(self, obj):
         latest = obj.actualizations.first()
         return latest.status if latest else "created"
+
+    def get_is_ready_for_pickup(self, obj):
+        # Check if package is in a stash at the destination postmat
+        if hasattr(obj, "stash_assignment"):
+            stash = obj.stash_assignment.first()
+            if stash and stash.postmat_id == obj.destination_postmat_id:
+                return True
+
+        # Fallback: if status is explicitly DELIVERED
+        latest = obj.actualizations.first()
+        if latest and latest.status == "delivered":
+            return True
+        return False
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        # Only receiver sees unlock code
+        if not request or request.user != instance.receiver_user:
+            data.pop("unlock_code", None)
+        return data
 
 
 class PublicTrackingActualizationSerializer(serializers.ModelSerializer):
@@ -598,16 +633,32 @@ class PublicTrackingActualizationSerializer(serializers.ModelSerializer):
 
 
 class PublicPackageTrackingSerializer(serializers.ModelSerializer):
-    history = PublicTrackingActualizationSerializer(
-        source="actualizations", many=True, read_only=True
-    )
-    destination_city = serializers.CharField(
+    actualizations = PublicTrackingActualizationSerializer(many=True, read_only=True)
+    destination_postmat_name = serializers.CharField(
         source="destination_postmat.warehouse.city", read_only=True
     )
-    origin_city = serializers.CharField(
+    origin_postmat_name = serializers.CharField(
         source="origin_postmat.warehouse.city", read_only=True
     )
+    latest_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
-        fields = ["id", "size", "destination_city", "origin_city", "history"]
+        fields = [
+            "id",
+            "size",
+            "destination_postmat_name",
+            "origin_postmat_name",
+            "actualizations",
+            "pickup_code",
+            "latest_status",
+        ]
+
+    def get_latest_status(self, obj):
+        latest = obj.actualizations.order_by("-created_at").first()
+        return latest.status if latest else "created"
+
+
+class AnonymousPickupSerializer(serializers.Serializer):
+    contact = serializers.CharField(required=True, help_text="Email or Phone number")
+    unlock_code = serializers.CharField(required=True)
