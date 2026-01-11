@@ -106,7 +106,7 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
       let res;
       if (isEditing) {
         // PATCH existing package
-        res = await axiosClient.patch(`/api/packages/send-package/${pkg.id}/`, payload);
+        res = await axiosClient.patch(`/api/packages/send-package/${pkg.id}`, payload);
       } else {
         // POST new package
         res = await axiosClient.post("/api/packages/send-package/", payload);
