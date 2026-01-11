@@ -100,7 +100,7 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 border-b 
+      className={`fixed top-0 left-0 w-full transition-all duration-300 border-b z-100
         ${scrolled || menuOpen ? "bg-white/90 backdrop-blur-xl border-gray-200 shadow-sm py-3" : "bg-white/50 backdrop-blur-md border-transparent py-4"}`}
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">

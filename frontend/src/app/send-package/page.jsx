@@ -268,6 +268,12 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+const SIZE_DIMENSIONS = {
+  small: "8 x 38 x 64 cm",
+  medium: "19 x 38 x 64 cm",
+  large: "41 x 38 x 64 cm"
+};
+
 export default function SendPackagePage() {
   const [postmats, setPostmats] = useState([]);
   const [origin, setOrigin] = useState(null);
@@ -466,6 +472,9 @@ export default function SendPackagePage() {
                 <option value="medium">Medium</option>
                 <option value="large">Large</option>
               </select>
+              <p className="text-xs text-gray-500 mt-1 font-medium">
+                  Max: {SIZE_DIMENSIONS[size] || "Standard size"}
+              </p>
             </div>
 
             <div>
