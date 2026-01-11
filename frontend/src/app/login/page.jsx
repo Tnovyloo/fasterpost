@@ -160,6 +160,10 @@ export default function LoginPage() {
             <div className="text-sm font-medium text-blue-900 mb-1 block mt-3 text-center mx-auto">
               Forgot password? you could <Link href={"/password-reset"} className="font-bold">Reset it</Link>
             </div>
+
+            <div className="text-sm font-medium text-blue-900 mb-1 block mt-3 text-center mx-auto">
+              Not registered yet? <Link href={"/register"} className="font-bold">Register now!</Link>
+            </div>
           </div>
         </div>
       </main>

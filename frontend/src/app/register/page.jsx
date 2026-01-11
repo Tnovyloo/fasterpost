@@ -20,7 +20,7 @@ export default function RegisterPage() {
     setMessage("");
 
     if (password !== confirmPassword) {
-      setError("Hasła muszą być takie same.");
+      setError("Passwords must match.");
       return;
     }
 
@@ -33,7 +33,7 @@ export default function RegisterPage() {
       });
 
       // Axios automatically throws on non-2xx responses, so no need for `!res.ok`
-      setMessage(data?.status || "Rejestracja zakończona sukcesem!");
+      setMessage(data?.status || "Registration successful!");
       setError("");
       startCooldown();
     } catch (err) {
@@ -41,7 +41,7 @@ export default function RegisterPage() {
         err.response?.data?.error ||
         err.response?.data?.detail ||
         err.message ||
-        "Wystąpił nieoczekiwany błąd.";
+        "An unexpected error occurred.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -50,7 +50,7 @@ export default function RegisterPage() {
 
   const handleResend = async () => {
     if (!email) {
-      setError("Proszę wpisać adres e-mail, aby wysłać link weryfikacyjny.");
+      setError("Please enter an email address to send the verification link.");
       return;
     }
 
@@ -65,7 +65,7 @@ export default function RegisterPage() {
       });
 
       setMessage(
-        data?.status || "Link weryfikacyjny został ponownie wysłany!"
+        data?.status || "Verification link resent!"
       );
       startCooldown();
     } catch (err) {
@@ -73,7 +73,7 @@ export default function RegisterPage() {
         err.response?.data?.error ||
         err.response?.data?.detail ||
         err.message ||
-        "Wystąpił nieoczekiwany błąd.";
+        "An unexpected error occurred.";
       setError(msg);
     }
   };
@@ -98,7 +98,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-md animate-fade-in">
             <div className="backdrop-blur-xl bg-white/70 border border-amber-200/50 rounded-2xl shadow-2xl p-8">
             <h1 className="text-3xl font-semibold text-center text-amber-800 mb-6">
-                Utwórz konto ✨
+                Create Account ✨
             </h1>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -110,14 +110,14 @@ export default function RegisterPage() {
                 placeholder="adres@email.com"
                 />
                 <InputField
-                label="Hasło"
+                label="Password"
                 type="password"
                 value={password}
                 onChange={setPassword}
                 placeholder="••••••••"
                 />
                 <InputField
-                label="Powtórz hasło"
+                label="Confirm Password"
                 type="password"
                 value={confirmPassword}
                 onChange={setConfirmPassword}
@@ -145,10 +145,10 @@ export default function RegisterPage() {
                 {loading ? (
                     <div className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span>Rejestracja...</span>
+                    <span>Registering...</span>
                     </div>
                 ) : (
-                    "Zarejestruj się"
+                    "Register"
                 )}
                 </button>
             </form>
@@ -162,18 +162,18 @@ export default function RegisterPage() {
                 }`}
                 >
                 {cooldown > 0
-                    ? `Możesz wysłać ponownie za ${cooldown}s`
-                    : "Wyślij ponownie e-mail weryfikacyjny"}
+                    ? `Resend available in ${cooldown}s`
+                    : "Resend verification email"}
                 </button>
             </div>
 
             <div className="text-sm text-center mt-6 text-amber-800">
-                Masz już konto?{" "}
+                Already have an account?{" "}
                 <Link
                 href="/login"
                 className="font-semibold text-amber-900 hover:underline"
                 >
-                Zaloguj się
+                Log in
                 </Link>
             </div>
             </div>

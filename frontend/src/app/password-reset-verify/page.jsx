@@ -72,19 +72,19 @@ export default function PasswordResetVerifyPage() {
         <div className="w-full max-w-md animate-fade-in">
           <div className="backdrop-blur-xl bg-white/70 border border-purple-200/50 rounded-2xl shadow-2xl p-8">
             <h1 className="text-3xl font-semibold text-center text-purple-900 mb-6">
-              Resetowanie hasła 🔒
+              Reseting password 🔒
             </h1>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <InputField
-                label="Nowe hasło"
+                label="New password"
                 type="password"
                 value={password1}
                 onChange={setPassword1}
                 placeholder="••••••••"
               />
               <InputField
-                label="Powtórz nowe hasło"
+                label="Repeat password"
                 type="password"
                 value={password2}
                 onChange={setPassword2}
@@ -113,10 +113,10 @@ export default function PasswordResetVerifyPage() {
                 {loading ? (
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span>Resetowanie...</span>
+                    <span>Reseting...</span>
                   </div>
                 ) : (
-                  "Zresetuj hasło"
+                  "Reset password"
                 )}
               </button>
             </form>
