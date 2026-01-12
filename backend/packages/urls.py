@@ -4,21 +4,33 @@ from packages.views.views_packages import (
     SendPackageView,
     PricingCalculatorView,
     PaymentStatusView,
+    UserIncomingPackagesView,
     UserPaymentsView,
     StripeWebhookView,
     RetryPaymentView,
     OpenStashView,
     PackageDetailView,
+    CollectPackageView,
 )
 from packages.views import views_public
 
 urlpatterns = [
     path("user/", UserPackagesView.as_view()),
+    path(
+        "user/incoming/",
+        UserIncomingPackagesView.as_view(),
+        name="user-incoming-packages",
+    ),
     path("send-package/", SendPackageView.as_view(), name="send-package"),
     path(
         "send-package/<uuid:package_id>", SendPackageView.as_view(), name="edit-package"
     ),
     path("open-stash/<uuid:package_id>/", OpenStashView.as_view(), name="open-stash"),
+    path(
+        "collect/<uuid:package_id>/",
+        CollectPackageView.as_view(),
+        name="collect-package",
+    ),
     path(
         "details/<uuid:package_id>/", PackageDetailView.as_view(), name="package-detail"
     ),
@@ -48,5 +60,10 @@ urlpatterns = [
         "public/track/<str:query>/",
         views_public.PublicTrackingView.as_view(),
         name="public-track",
+    ),
+    path(
+        "public/pickup/",
+        views_public.AnonymousPickupView.as_view(),
+        name="public-pickup",
     ),
 ]

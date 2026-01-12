@@ -64,12 +64,12 @@ export default function PasswordResetPage() {
         <div className="w-full max-w-md animate-fade-in">
           <div className="backdrop-blur-xl bg-white/70 border border-blue-200/50 rounded-2xl shadow-2xl p-8">
             <h1 className="text-3xl font-semibold text-center text-blue-900 mb-6">
-              Resetowanie hasła 🔑
+              Reseting password 🔑
             </h1>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <InputField
-                label="Adres e-mail"
+                label="e-mail address"
                 type="email"
                 value={email}
                 onChange={setEmail}
@@ -101,17 +101,17 @@ export default function PasswordResetPage() {
                     <span>Wysyłanie...</span>
                   </div>
                 ) : cooldown > 0 ? (
-                  `Odczekaj ${cooldown}s`
+                  `Wait ${cooldown}s`
                 ) : (
-                  "Wyślij e-mail"
+                  "Send e-mail"
                 )}
               </button>
             </form>
 
             <div className="text-sm text-center mt-6 text-blue-800">
-              Pamiętasz hasło?{" "}
+              Remember password?{" "}
               <Link href="/login" className="font-semibold text-blue-900 hover:underline">
-                Zaloguj się
+                Log in
               </Link>
             </div>
           </div>

@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from django.http import HttpResponse
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Subquery, Q
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils import timezone
@@ -54,7 +54,39 @@ class UserPackagesView(APIView):
             .select_related("origin_postmat", "destination_postmat")
         )
 
-        serializer = PackageListSerializer(packages, many=True)
+        serializer = PackageListSerializer(
+            packages, many=True, context={"request": request}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserIncomingPackagesView(APIView):
+    """
+    GET /user/incoming/ → list of packages sent TO the user
+    """
+
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        last_status_subquery = (
+            Actualization.objects.filter(package_id=OuterRef("pk"))
+            .order_by("-created_at")
+            .values("status")[:1]
+        )
+
+        packages = (
+            Package.objects.filter(receiver_user=user)
+            .annotate(latest_status=Subquery(last_status_subquery))
+            .select_related("origin_postmat", "destination_postmat", "sender")
+        )
+
+        serializer = PackageListSerializer(
+            packages, many=True, context={"request": request}
+        )
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -81,7 +113,6 @@ class SendPackageView(APIView):
                 "message": "Package registered. Please complete payment.",
                 "package_id": str(package.id),
                 "origin_postmat": str(package.origin_postmat.name),
-                "unlock_code": package.unlock_code,
                 "payment": {
                     "client_secret": payment.stripe_client_secret,
                     "amount": str(payment.amount),
@@ -174,7 +205,6 @@ class SendPackageView(APIView):
                 "receiver_phone": updated_package.receiver_phone,
                 "size": updated_package.size,
                 "weight": updated_package.weight,
-                "unlock_code": updated_package.unlock_code,
                 "payment": {
                     "client_secret": payment.stripe_client_secret,
                     "amount": str(payment.amount),
@@ -638,10 +668,15 @@ class PackageDetailView(APIView):
                 .prefetch_related(
                     "actualizations__courier_id", "actualizations__warehouse_id"
                 )
-                .get(id=package_id, sender=request.user)
+                .get(
+                    Q(id=package_id)
+                    & (Q(sender=request.user) | Q(receiver_user=request.user))
+                )
             )
 
-            serializer = SenderPackageDetailSerializer(package)
+            serializer = SenderPackageDetailSerializer(
+                package, context={"request": request}
+            )
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Package.DoesNotExist:
@@ -657,3 +692,55 @@ class PackageDetailView(APIView):
 
 class CollectPackageView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CustomTokenAuthentication]
+
+    def post(self, request, package_id):
+        try:
+            # Ensure user is the receiver
+            package = Package.objects.get(id=package_id, receiver_user=request.user)
+
+            # Check if package is ready for collection (must be DELIVERED)
+            is_ready = False
+            latest_act = package.actualizations.order_by("-created_at").first()
+
+            if (
+                latest_act
+                and latest_act.status == Actualization.PackageStatus.DELIVERED
+            ):
+                is_ready = True
+            elif hasattr(package, "stash_assignment"):
+                stash = package.stash_assignment.first()
+                if stash and stash.postmat_id == package.destination_postmat_id:
+                    is_ready = True
+
+            if not is_ready:
+                return Response(
+                    {
+                        "error": "Package is not ready for collection or has already been collected."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Update status to PICKED_UP
+            Actualization.objects.create(
+                package_id=package,
+                status=Actualization.PackageStatus.PICKED_UP,
+                created_at=timezone.now(),
+            )
+
+            # Release the stash
+            if hasattr(package, "stash_assignment"):
+                package.stash_assignment.update(
+                    package=None, is_empty=True, reserved_until=None
+                )
+
+            return Response(
+                {"message": "Package collected successfully!"},
+                status=status.HTTP_200_OK,
+            )
+
+        except Package.DoesNotExist:
+            return Response(
+                {"error": "Package not found or you are not the receiver."},
+                status=status.HTTP_404_NOT_FOUND,
+            )

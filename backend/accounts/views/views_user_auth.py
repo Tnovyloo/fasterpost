@@ -868,4 +868,3 @@ class PasswordResetConfirmView(APIView):
 
         else:
             return Response(data=serializer.errors, status=status.HTTP_404_NOT_FOUND)
-

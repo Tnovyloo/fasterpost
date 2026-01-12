@@ -1,73 +1,146 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import api from "@/axios/api";
+import Header from "@/app/components/Header";
 
-export default function PaymentsPage() {
-  const [packages, setPackages] = useState([]);
-  const [selected, setSelected] = useState([]);
+export default function BusinessPage() {
+  const [role, setRole] = useState(null);
+  const [requestStatus, setRequestStatus] = useState(null); // null, 'PENDING', 'APPROVED', 'REJECTED'
+  const [nip, setNip] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
-    api.get("api/business/packages").then((res) => {
-      // Filter only unpaid
-      setPackages(res.data.filter((p) => !p.is_paid));
-    });
-  }, []);
+    const init = async () => {
+      try {
+        // 1. Check Role
+        const roleRes = await api.get("/accounts/user/role/");
+        const userRole = roleRes.data.role;
+        setRole(userRole);
 
-  const toggleSelect = (id) => {
-    if (selected.includes(id)) {
-      setSelected(selected.filter((s) => s !== id));
-    } else {
-      setSelected([...selected, id]);
+        if (userRole === "business") {
+          router.push("/business/dashboard");
+          return;
+        }
+
+        // 2. Check for existing request
+        try {
+          const reqRes = await api.get("/api/business/request/");
+          if (reqRes.data && reqRes.data.status) {
+            setRequestStatus(reqRes.data.status);
+          }
+        } catch (err) {
+          // 404 means no request found, which is fine
+          if (err.response?.status !== 404) {
+            console.error("Failed to fetch request status", err);
+          }
+        }
+      } catch (err) {
+        console.error("Initialization failed", err);
+        router.push("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, [router]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      await api.post("/api/business/request/", { tax_id: nip });
+      setRequestStatus("PENDING");
+      alert("Application submitted successfully!");
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || "Failed to submit application.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const toggleSelectAll = () => {
-    if (selected.length === packages.length) {
-      setSelected([]);
-    } else {
-      setSelected(packages.map((p) => p.id));
-    }
-  };
-
-  const handlePay = () => {
-    alert(`Processing payment for ${selected.length} packages...`);
-    // Implement payment API call here
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Pending Payments</h1>
-        <button disabled={selected.length === 0} onClick={handlePay} className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition">
-          Pay Selected ({selected.length})
-        </button>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="max-w-4xl mx-auto pt-32 px-6">
+        <div className="bg-white rounded-xl shadow-lg p-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+            Business Account
+          </h1>
 
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="p-4 w-10"><input type="checkbox" onChange={toggleSelectAll} checked={packages.length > 0 && selected.length === packages.length} /></th>
-              <th className="p-4 font-medium text-gray-500">Package ID</th>
-              <th className="p-4 font-medium text-gray-500">Receiver</th>
-              <th className="p-4 font-medium text-gray-500 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {packages.map((pkg) => (
-              <tr key={pkg.id} className={selected.includes(pkg.id) ? "bg-indigo-50" : ""}>
-                <td className="p-4"><input type="checkbox" checked={selected.includes(pkg.id)} onChange={() => toggleSelect(pkg.id)} /></td>
-                <td className="p-4 font-mono text-sm">{pkg.id}</td>
-                <td className="p-4">{pkg.receiver_name}</td>
-                <td className="p-4 text-right font-bold">${pkg.price || "10.00"}</td>
-              </tr>
-            ))}
-            {packages.length === 0 && (
-              <tr><td colSpan="4" className="p-8 text-center text-gray-500">No unpaid packages found.</td></tr>
-            )}
-          </tbody>
-        </table>
+          {requestStatus === "PENDING" && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+              <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+                Application Pending
+              </h2>
+              <p className="text-yellow-700">
+                Your request to become a business partner is currently under review.
+                Please check back later.
+              </p>
+            </div>
+          )}
+
+          {requestStatus === "REJECTED" && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+              <h2 className="text-xl font-semibold text-red-800 mb-2">
+                Application Rejected
+              </h2>
+              <p className="text-red-700">
+                Unfortunately, your request was rejected. Please contact support for more information.
+              </p>
+            </div>
+          )}
+
+          {!requestStatus && (
+            <div>
+              <p className="text-gray-600 mb-8">
+                Upgrade your account to Business to access bulk shipping, API integrations, and warehouse management.
+                Please provide your NIP (Tax ID) to verify your company details.
+              </p>
+
+              <form onSubmit={handleSubmit} className="max-w-md">
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    NIP (Tax Identification Number)
+                  </label>
+                  <input
+                    type="text"
+                    value={nip}
+                    onChange={(e) => setNip(e.target.value)}
+                    placeholder="e.g., 1234567890"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    required
+                  />
+                </div>
+
+                {error && <p className="text-red-600 mb-4 text-sm">{error}</p>}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {loading ? "Verifying..." : "Submit Application"}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

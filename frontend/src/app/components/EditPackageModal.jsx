@@ -21,6 +21,12 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+const SIZE_DIMENSIONS = {
+  small: "8 x 38 x 64 cm",
+  medium: "19 x 38 x 64 cm",
+  large: "41 x 38 x 64 cm"
+};
+
 export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
   const isEditing = !!pkg?.id;
 
@@ -106,7 +112,7 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
       let res;
       if (isEditing) {
         // PATCH existing package
-        res = await axiosClient.patch(`/api/packages/send-package/${pkg.id}/`, payload);
+        res = await axiosClient.patch(`/api/packages/send-package/${pkg.id}`, payload);
       } else {
         // POST new package
         res = await axiosClient.post("/api/packages/send-package/", payload);
@@ -138,8 +144,19 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
 
     } catch (err) {
       console.error("Submit error:", err);
-      const errorMsg = err.response?.data?.error || err.message || "Operation failed.";
-      setMessage({ type: "error", text: errorMsg });
+
+      let errorText = err.message || "Operation failed.";
+
+      if (err.response?.data) {
+        if (typeof err.response.data === "string") {
+          errorText = err.response.data;
+        } else if (Array.isArray(err.response.data)) {
+          errorText = err.response.data.join(", ");
+        } else if (typeof err.response.data === "object") {
+          errorText = Object.values(err.response.data).flat().join(", ");
+        }
+      }
+      setMessage({ type: "error", text: errorText });
     } finally {
       setLoading(false);
     }
@@ -216,6 +233,9 @@ export default function EditPackageModal({ package: pkg, onClose, onSuccess }) {
                                 <option value="medium">Medium</option>
                                 <option value="large">Large</option>
                             </select>
+                            <p className="text-xs text-gray-500 mt-1 font-medium">
+                                Max: {SIZE_DIMENSIONS[size] || "Standard size"}
+                            </p>
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Weight (kg)</label>

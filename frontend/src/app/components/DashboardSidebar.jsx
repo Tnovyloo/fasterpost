@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, Settings, UserCircle, LogOut, PlusCircle } from "lucide-react";
+import { Package, Settings, UserCircle, LogOut, PlusCircle, Inbox } from "lucide-react";
 import api from "@/axios/api";
 import { useRouter } from "next/navigation";
 
@@ -20,6 +20,7 @@ export default function DashboardSidebar({ activeView, setActiveView, onSendPack
 
   const navItems = [
     { id: "parcels", label: "My Parcels", icon: <Package className="w-5 h-5" /> },
+    { id: "incoming", label: "Incoming Parcels", icon: <Inbox className="w-5 h-5" /> },
     { id: "settings", label: "Settings", icon: <Settings className="w-5 h-5" /> },
   ];
 

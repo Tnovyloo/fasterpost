@@ -1,20 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { Package, Warehouse, Truck, Users, Home, LogOut, Menu, Briefcase } from "lucide-react";
 import Header from "@/app/components/Header";
 import { useState } from "react";
 import { 
-  Package, 
+  Package as PackageIcon, 
   Warehouse, 
-  Truck, 
   Users, 
   Home, 
   Menu, 
   Map, 
-  BarChart3 
+  LogOut,
+  Truck,
+  BarChart3,
+  Briefcase 
 } from "lucide-react";
-import Header from "@/app/components/Header";
 
 // Import Views
 import DashboardHome from "./views/DashboardHome";
@@ -23,6 +23,7 @@ import WarehousesView from "./views/WarehousesView";
 import PackagesView from "./views/PackagesView";
 import UsersView from "./views/UsersView";
 import RoutesView from "./views/RoutesView";
+import BusinessRequestsView from "./views/BusinessRequestsView";
 
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -48,7 +49,7 @@ export default function AdminDashboard() {
     {
       id: "postmats",
       title: "Postmats & Stashes",
-      icon: <Package className="w-5 h-5" />,
+      icon: <PackageIcon className="w-5 h-5" />,
       color: "bg-blue-600",
       view: <PostmatsView goBack={goBack} />,
     },
@@ -62,7 +63,7 @@ export default function AdminDashboard() {
     {
       id: "packages",
       title: "All Packages",
-      icon: <Package className="w-5 h-5" />,
+      icon: <PackageIcon className="w-5 h-5" />,
       color: "bg-purple-600",
       view: <PackagesView goBack={goBack} />,
     },
@@ -76,9 +77,9 @@ export default function AdminDashboard() {
     {
       id: "business",
       title: "Business Requests",
-      href: "/admin/business",
       icon: <Briefcase className="w-5 h-5" />,
       color: "bg-orange-600",
+      view: <BusinessRequestsView />,
     },
   ];
 

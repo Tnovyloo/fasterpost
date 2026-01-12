@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Package, Warehouse, Truck, Users, Home, LogOut, Menu, Briefcase, Check, X, Trash2 } from "lucide-react";
 import Header from "@/app/components/Header";
+import api from "@/axios/api";
 import { useState, useEffect } from "react";
 
 export default function AdminBusinessPage() {
@@ -59,14 +60,8 @@ export default function AdminBusinessPage() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/business/admin/requests", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch requests");
-      const data = await response.json();
+      const response = await api.get("/api/business/admin/requests");
+      const data = response.data;
 
       // Handle DRF pagination (data.results) or direct list (data)
       if (Array.isArray(data)) {
@@ -91,16 +86,7 @@ export default function AdminBusinessPage() {
     if (action === "delete" && !confirm("Are you sure you want to delete this request?")) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/business/admin/requests/${id}/action`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ action }),
-      });
-
-      if (!response.ok) throw new Error(`Failed to ${action} request`);
+      await api.post(`/api/business/admin/requests/${id}/action`, { action });
 
       // Refresh list
       fetchRequests();

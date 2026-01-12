@@ -19,7 +19,7 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     const verifyEmail = async () => {
       if (!uid || !token) {
-        setError("Nieprawidłowy link weryfikacyjny.");
+        setError("Invalid verification link.");
         setLoading(false);
         return;
       }
@@ -30,10 +30,10 @@ export default function VerifyEmailPage() {
           { uid, verify_token: token },
           { withCredentials: true }
         );
-        setMessage(res.data.status || "Adres e-mail został zweryfikowany!");
+        setMessage(res.data.status || "Email address verified!");
         localStorage.setItem("isLoggedIn", "true");
       } catch (err) {
-        setError(err.response?.data?.detail || err.message || "Błąd weryfikacji.");
+        setError(err.response?.data?.detail || err.message || "Verification failed.");
       } finally {
         setLoading(false);
       }
@@ -49,13 +49,13 @@ export default function VerifyEmailPage() {
         <div className="w-full max-w-md animate-fade-in">
           <div className="backdrop-blur-xl bg-white/70 border border-blue-100/50 rounded-2xl shadow-2xl p-8 text-center">
             <h1 className="text-3xl font-semibold text-blue-700 mb-6">
-              Weryfikacja e-mail ✨
+              Email Verification ✨
             </h1>
 
             {loading ? (
               <div className="flex flex-col items-center gap-4">
                 <span className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                <span className="text-gray-700">Sprawdzanie linku...</span>
+                <span className="text-gray-700">Checking link...</span>
               </div>
             ) : error ? (
               <div className="text-red-500 text-sm">{error}</div>
@@ -66,7 +66,7 @@ export default function VerifyEmailPage() {
                   onClick={() => router.push("/login")}
                   className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition shadow-md hover:shadow-lg"
                 >
-                  Przejdź do logowania
+                  Go to Login
                 </button>
               </div>
             )}

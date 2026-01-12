@@ -92,18 +92,36 @@ export default function PackagesAdminPage() {
 
   const handleUpdatePackage = async () => {
     try {
-      const res = await api.put(
+      if (!editForm.receiver_name || !editForm.receiver_phone) {
+        alert("Receiver name and phone are required");
+        return;
+      }
+
+      if (Number(editForm.weight) <= 0) {
+        alert("Weight must be positive");
+        return;
+      }
+
+      const payload = {
+        size: editForm.size || "small",
+        weight: Number(editForm.weight),
+        receiver_name: editForm.receiver_name,
+        receiver_phone: editForm.receiver_phone,
+      };
+
+      const res = await api.patch(
         `/api/admin/packages/${selectedPackage.id}/`,
-        editForm
+        payload
       );
 
       alert("Package updated successfully!");
       setSelectedPackage(res.data);
+      setEditForm(res.data);
       setIsEditing(false);
       fetchPackages();
     } catch (err) {
       console.error("Failed to update package:", err);
-      alert("Failed to update package");
+      alert(`Failed to update package${err.response?.data ? ': ' + JSON.stringify(err.response.data) : ''}`);
     }
   };
 
@@ -364,7 +382,7 @@ export default function PackagesAdminPage() {
                   </label>
                   {isEditing ? (
                     <select
-                      value={editForm.size}
+                      value={editForm.size ?? "small"}
                       onChange={(e) =>
                         setEditForm({ ...editForm, size: e.target.value })
                       }
@@ -393,7 +411,7 @@ export default function PackagesAdminPage() {
                   {isEditing ? (
                     <input
                       type="number"
-                      value={editForm.weight}
+                      value={editForm.weight ?? ""}
                       onChange={(e) =>
                         setEditForm({ ...editForm, weight: e.target.value })
                       }
@@ -412,7 +430,7 @@ export default function PackagesAdminPage() {
                   {isEditing ? (
                     <input
                       type="text"
-                      value={editForm.receiver_name}
+                      value={editForm.receiver_name ?? ""}
                       onChange={(e) =>
                         setEditForm({
                           ...editForm,
@@ -434,7 +452,7 @@ export default function PackagesAdminPage() {
                   {isEditing ? (
                     <input
                       type="text"
-                      value={editForm.receiver_phone}
+                      value={editForm.receiver_phone ?? ""}
                       onChange={(e) =>
                         setEditForm({
                           ...editForm,
