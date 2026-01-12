@@ -3,6 +3,7 @@ import uuid
 import time
 import requests
 from logistics.models import Warehouse
+from django.conf import settings
 
 class Zone(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -19,7 +20,27 @@ class Postmat(models.Model):
         INACTIVE = "inactive", "Inactive"
         MAINTENANCE = "maintenance", "Maintenance"
 
+    class PostmatType(models.TextChoices):
+        LOCKER = "locker", "Locker",
+        PICKUP_POINT = "pickup_point", "Pickup Point"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    type = models.CharField(
+        max_length=20,
+        choices=PostmatType.choices,
+        default=PostmatType.LOCKER,
+        help_text="Locker has stashes. Pickup Point is for business users."
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pickup_points",
+        help_text="Only for Pickup Points. The business user who owns this point."
+    )
+
     warehouse = models.ForeignKey(
         Warehouse, on_delete=models.CASCADE, related_name="postmats"
     )
@@ -46,6 +67,10 @@ class Postmat(models.Model):
 
     def __str__(self):
         return self.name
+    
+    @property
+    def is_locker(self):
+        return self.type == self.PostmatType.LOCKER
 
     def save(self, *args, **kwargs):
         should_fetch = False

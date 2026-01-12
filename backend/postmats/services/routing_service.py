@@ -146,6 +146,11 @@ class LocalRoutingService:
         for p in packages: by_postmat[p.destination_postmat].append(p)
         
         for pm, pkgs in by_postmat.items():
+            if pm.is_locker is False:
+                for p in pkgs:
+                    approved.extend(pkgs)
+                continue
+
             # Pobieramy puste skrytki, które nie są zarezerwowane
             empty_stashes = list(pm.stashes.filter(is_empty=True, reserved_until__isnull=True))
             
