@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from django.http import HttpResponse
-from django.db.models import OuterRef, Subquery, Q
+from django.db.models import OuterRef, Subquery, Q, F
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils import timezone
@@ -48,15 +48,25 @@ class UserPackagesView(APIView):
             .values("status")[:1]
         )
 
+        reservation_subquery = Stash.objects.filter(package_id=OuterRef("pk")).values(
+            "reserved_until"
+        )[:1]
+
         packages = (
             Package.objects.filter(sender=user)
-            .annotate(latest_status=Subquery(last_status_subquery))
-            .select_related("origin_postmat", "destination_postmat")
+            .annotate(
+                latest_status=Subquery(last_status_subquery),
+                payment_status=F("payment__status"),
+                reserved_until=Subquery(reservation_subquery),
+            )
+            .select_related("origin_postmat", "destination_postmat", "payment")
         )
 
         serializer = PackageListSerializer(
             packages, many=True, context={"request": request}
         )
+        # The PackageListSerializer needs to be updated to include
+        # `payment_status` and `reserved_until` fields.
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -108,11 +118,19 @@ class SendPackageView(APIView):
         # Get payment info
         payment = Payment.objects.get(package=package)
 
+        # Get stash reservation info
+        reserved_until = None
+        if hasattr(package, "stash_assignment"):
+            stash = package.stash_assignment.first()
+            if stash:
+                reserved_until = stash.reserved_until
+
         return Response(
             {
-                "message": "Package registered. Please complete payment.",
+                "message": "Package registered. Please complete payment. Stash reserved for 24 hours.",
                 "package_id": str(package.id),
                 "origin_postmat": str(package.origin_postmat.name),
+                "reserved_until": reserved_until,
                 "payment": {
                     "client_secret": payment.stripe_client_secret,
                     "amount": str(payment.amount),
@@ -215,6 +233,53 @@ class SendPackageView(APIView):
                 },
                 "pricing_recalculated": pricing_changed,
             },
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, package_id=None):
+        if not package_id:
+            package_id = request.data.get("package_id") or request.query_params.get(
+                "package_id"
+            )
+
+        if not package_id:
+            return Response(
+                {"error": "Package ID is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            package = Package.objects.get(id=package_id, sender=request.user)
+        except Package.DoesNotExist:
+            return Response(
+                {
+                    "error": "Package not found or you don't have permission to delete it."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if payment has been completed
+        try:
+            payment = Payment.objects.get(package=package)
+            if payment.status == Payment.PaymentStatus.SUCCEEDED:
+                return Response(
+                    {
+                        "error": "Cannot delete package. Payment has already been completed.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except Payment.DoesNotExist:
+            pass
+
+        # Release stash reservation
+        if hasattr(package, "stash_assignment"):
+            package.stash_assignment.update(
+                package=None, is_empty=True, reserved_until=None
+            )
+
+        package.delete()
+
+        return Response(
+            {"message": "Package deleted successfully."},
             status=status.HTTP_200_OK,
         )
 
@@ -378,6 +443,12 @@ class StripeWebhookView(APIView):
             payment.payment_method = payment_intent.get("payment_method")
             payment.save()
             print(f"[WEBHOOK] Payment status updated to SUCCEEDED")
+
+            # Update stash reservation to 24h from payment time
+            if hasattr(payment.package, "stash_assignment"):
+                payment.package.stash_assignment.update(
+                    reserved_until=timezone.now() + timezone.timedelta(hours=24)
+                )
 
             # Update package status
             # from packages.models import Actualization

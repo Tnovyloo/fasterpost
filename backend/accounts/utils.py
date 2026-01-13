@@ -50,7 +50,7 @@ def send_password_reset_email(user: AbstractBaseUser) -> bool:
         send_mail(
             subject=subject,
             message=message,
-            from_email=settings.EMAIL_HOST,
+            from_email=settings.EMAIL_HOST_USER or settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
         )
 
@@ -108,7 +108,7 @@ def send_verification_email(user: AbstractBaseUser):
         send_mail(
             subject=subject,
             message=message,
-            from_email=settings.EMAIL_HOST,
+            from_email=settings.EMAIL_HOST_USER or settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
         )
 

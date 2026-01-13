@@ -117,6 +117,30 @@ export default function MyParcelsView() {
         }
     };
 
+    const handleDelete = async (packageId, e) => {
+        if (e) e.stopPropagation();
+        
+        if (!window.confirm("Are you sure you want to delete this package? This action cannot be undone.")) {
+            return;
+        }
+
+        try {
+            await api.delete(`/api/packages/send-package/${packageId}/`);
+            showBanner("Package deleted successfully.", "success");
+            
+            // Remove from list
+            setParcels(prev => prev.filter(p => p.id !== packageId));
+            
+            // If selected, deselect
+            if (selectedParcel?.id === packageId) {
+                setSelectedParcel(null);
+            }
+        } catch (error) {
+            console.error("Delete error:", error);
+            showBanner(error.response?.data?.error || "Failed to delete package.", "error");
+        }
+    };
+
     const handlePaymentSuccess = async (packageId) => {
         setRetryingPayment(null);
         setClientSecret("");
@@ -142,6 +166,15 @@ export default function MyParcelsView() {
     const showBanner = (msg, type) => {
         setBanner({ msg, type });
         setTimeout(() => setBanner({ msg: "", type: "" }), 5000);
+    };
+
+    const formatTimeLeft = (seconds) => {
+        if (!seconds || seconds <= 0) return "0s";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
     };
 
     // --- Render Helpers ---
@@ -221,20 +254,35 @@ export default function MyParcelsView() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {p.payment_status !== 'succeeded' && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); setEditingPackage(p); }}
-                                                className="text-gray-400 hover:text-blue-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Edit Package"
-                                            >
-                                                ✏️
-                                            </button>
+                                            <>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setEditingPackage(p); }}
+                                                    className="text-gray-400 hover:text-blue-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="Edit Package"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
+                                                    className="text-gray-400 hover:text-red-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="Remove Package"
+                                                >
+                                                    ❌
+                                                </button>
+                                            </>
+                                            
                                         )}
                                         {getStatusBadge(p.latest_status)}
                                     </div>
                                 </div>
 
                                 <div className="flex justify-between items-center text-sm text-gray-600 border-t border-gray-100 pt-3 mt-2">
-                                    <span className="truncate max-w-[200px]">{p.origin_postmat_name} ➔ {p.destination_postmat_name}</span>
+                                    <div className="flex flex-col">
+                                        <span className="truncate max-w-[200px]">{p.origin_postmat_name} ➔ {p.destination_postmat_name}</span>
+                                        {p.stash_seconds_left > 0 && (
+                                            <span className="text-[10px] font-bold text-orange-600 mt-0.5">⏳ {formatTimeLeft(p.stash_seconds_left)} left for stash reservation.</span>
+                                        )}
+                                    </div>
                                     <div className="flex flex-col items-end">
                                          <span className="font-bold text-gray-900">${p.payment_amount}</span>
                                          <span className={`text-[10px] uppercase font-bold ${
@@ -298,6 +346,17 @@ export default function MyParcelsView() {
                                             <Elements options={{ clientSecret, appearance: { theme: 'stripe' }}} stripe={stripePromise}>
                                                 <PaymentForm onSuccess={() => handlePaymentSuccess(selectedParcel.id)} packageId={selectedParcel.id} />
                                             </Elements>
+                                        </div>
+                                    )}
+
+                                    {/* Reservation Info */}
+                                    {selectedParcel.stash_reserved_until && (
+                                        <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex justify-between items-center">
+                                            <div>
+                                                <p className="text-xs font-bold text-orange-400 uppercase">Stash Reservation</p>
+                                                <p className="text-xs text-orange-700 mt-1">Package must be deposited by this time.</p>
+                                            </div>
+                                            <p className="font-bold text-orange-900 text-sm text-right">{new Date(selectedParcel.stash_reserved_until).toLocaleString()}</p>
                                         </div>
                                     )}
 
