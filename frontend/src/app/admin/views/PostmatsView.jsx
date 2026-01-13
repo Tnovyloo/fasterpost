@@ -3,14 +3,31 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/axios/api";
 import PostmatRow from "@/app/components/PostmatRow";
-import dynamic from "next/dynamic";
 import { ArrowLeft } from "lucide-react"; // Import Arrow
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 const getImageUrl = (path) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
     return `http://localhost:8000${path}`;
 };
+
+function LocationMarker({ position, setPosition }) {
+  const map = useMapEvents({
+    click(e) {
+      setPosition([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+
+  useEffect(() => {
+    if (position) {
+      map.flyTo(position, map.getZoom());
+    }
+  }, [position, map]);
+
+  return position ? <Marker position={position} /> : null;
+}
 
 export default function PostmatsView({ goBack }) { // Receive goBack prop
   const API_BASE_POSTMAT = "api/admin/postmats";
@@ -35,6 +52,7 @@ export default function PostmatsView({ goBack }) { // Receive goBack prop
   const [showStashForm, setShowStashForm] = useState(false);
   const [selectedStash, setSelectedStash] = useState(null);
   const [mapPosition, setMapPosition] = useState([52.2297, 21.0122]);
+  const [isMapMounted, setIsMapMounted] = useState(false);
 
   const initialPostmatForm = {
     warehouse_id: "",
@@ -78,14 +96,18 @@ export default function PostmatsView({ goBack }) { // Receive goBack prop
     }
   }, []);
 
-  const MapPicker = dynamic(() => import("@/app/components/MapPicker"), {
-    ssr: false,
-    loading: () => (
-      <div className="h-96 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500 font-medium">Loading map...</p>
-      </div>
-    ),
-  });
+  useEffect(() => {
+    (async () => {
+      const L = (await import("leaflet")).default;
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      });
+      setIsMapMounted(true);
+    })();
+  }, []);
 
   const fetchPostmats = useCallback(async () => {
     setLoading(true);
@@ -371,7 +393,19 @@ export default function PostmatsView({ goBack }) { // Receive goBack prop
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-3">Location</label>
-                  <MapPicker position={mapPosition} setPosition={setMapPosition} />
+                  <div className="h-96 w-full rounded-lg overflow-hidden border border-gray-300 relative z-0">
+                    {isMapMounted ? (
+                      <MapContainer center={mapPosition} zoom={13} style={{ height: "100%", width: "100%" }}>
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <LocationMarker position={mapPosition} setPosition={setMapPosition} />
+                      </MapContainer>
+                    ) : (
+                      <div className="h-full w-full bg-gray-100 flex items-center justify-center text-gray-500">Loading Map...</div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">

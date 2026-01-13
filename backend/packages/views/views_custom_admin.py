@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAdminUser
 from django.db.models import Q, Prefetch
 from packages.models import Package, Actualization
 from packages.serializers import PackageAdminSerializer, PackageListSerializer
+from packages.serializers import ActualizationSerializer
 
 
 class PackageAdminViewSet(viewsets.ModelViewSet):

@@ -4,6 +4,24 @@ import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import api from "@/axios/api";
 import { ArrowLeft } from "lucide-react"; // Import Arrow
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+function LocationMarker({ position, setPosition }) {
+  const map = useMapEvents({
+    click(e) {
+      setPosition([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+
+  useEffect(() => {
+    if (position) {
+      map.flyTo(position, map.getZoom());
+    }
+  }, [position, map]);
+
+  return position ? <Marker position={position} /> : null;
+}
 
 function ConnectionSelector({ warehouses, selectedConnections, setSelectedConnections, currentWarehouseId }) {
   const availableWarehouses = warehouses.filter(w => w.id !== currentWarehouseId);
@@ -71,6 +89,7 @@ export default function WarehousesView({ goBack }) { // Receive goBack prop
   const [showForm, setShowForm] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState(null);
   const [mapPosition, setMapPosition] = useState([52.2297, 21.0122]);
+  const [isMapMounted, setIsMapMounted] = useState(false);
 
   const initialForm = {
     city: "",
@@ -138,6 +157,19 @@ export default function WarehousesView({ goBack }) { // Receive goBack prop
       longitude: mapPosition[1].toString(),
     }));
   }, [mapPosition]);
+
+  useEffect(() => {
+    (async () => {
+      const L = (await import("leaflet")).default;
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      });
+      setIsMapMounted(true);
+    })();
+  }, []);
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -212,15 +244,6 @@ export default function WarehousesView({ goBack }) { // Receive goBack prop
       w.city.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = !statusFilter || w.status === statusFilter;
     return matchesSearch && matchesStatus;
-  });
-
-  const MapPicker = dynamic(() => import("@/app/components/MapPicker"), {
-      ssr: false,
-      loading: () => (
-       <div className="h-96 rounded-lg border bg-gray-50 flex items-center justify-center">
-         <p className="text-gray-500">Loading map...</p>
-       </div>
-      ),
   });
 
   const WarehouseMap = dynamic(() => import("@/app/components/WarehouseMap"), {
@@ -372,7 +395,19 @@ export default function WarehousesView({ goBack }) { // Receive goBack prop
                   <label className="block text-sm font-bold text-gray-700 mb-3">
                     Drag marker to set location
                   </label>
-                  <MapPicker position={mapPosition} setPosition={setMapPosition} />
+                  <div className="h-96 w-full rounded-lg overflow-hidden border border-gray-300 relative z-0">
+                    {isMapMounted ? (
+                      <MapContainer center={mapPosition} zoom={13} style={{ height: "100%", width: "100%" }}>
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <LocationMarker position={mapPosition} setPosition={setMapPosition} />
+                      </MapContainer>
+                    ) : (
+                      <div className="h-full w-full bg-gray-100 flex items-center justify-center text-gray-500">Loading Map...</div>
+                    )}
+                  </div>
                 </div>
               </div>
 
