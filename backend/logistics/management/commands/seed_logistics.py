@@ -34,6 +34,7 @@ class Command(BaseCommand):
             defaults={
                 'first_name': 'Jan',
                 'last_name': 'Kowalski',
+                'username': 'sender_user',
                 'role': 'client',
                 'is_active': True
             }
