@@ -111,7 +111,7 @@ class User(AbstractBaseUser):
     warehouse = models.ForeignKey(
         "logistics.Warehouse",
         default=None,
-        on_delete=models.DO_NOTHING,
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
     )
