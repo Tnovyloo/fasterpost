@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from django.utils import timezone
 from .models import Package, Actualization
 from rest_framework import serializers
 from postmats.models import Postmat, Stash
@@ -47,6 +48,9 @@ class PackageListSerializer(serializers.ModelSerializer):
     payment_client_secret = serializers.SerializerMethodField()
     can_retry_payment = serializers.SerializerMethodField()
     pickup_code = serializers.SerializerMethodField()
+    stash_reserved_until = serializers.SerializerMethodField()
+    stash_seconds_left = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
@@ -70,7 +74,26 @@ class PackageListSerializer(serializers.ModelSerializer):
             "payment_amount",
             "payment_client_secret",
             "can_retry_payment",
+            "stash_reserved_until",
+            "stash_seconds_left",
+            "can_delete",
         ]
+
+    def get_stash_reserved_until(self, obj):
+        if hasattr(obj, "stash_assignment"):
+            stash = obj.stash_assignment.first()
+            if stash:
+                return stash.reserved_until
+        return None
+
+    def get_stash_seconds_left(self, obj):
+        if hasattr(obj, "stash_assignment"):
+            stash = obj.stash_assignment.first()
+            if stash and stash.reserved_until:
+                now = timezone.now()
+                if stash.reserved_until > now:
+                    return int((stash.reserved_until - now).total_seconds())
+        return 0
 
     def get_pickup_code(self, obj):
         """Ensure pickup_code is never null to prevent frontend crashes"""
@@ -118,6 +141,18 @@ class PackageListSerializer(serializers.ModelSerializer):
             ]
         except Payment.DoesNotExist:
             return False
+
+    def get_can_delete(self, obj):
+        """Check if package can be deleted (not paid and user is sender)"""
+        request = self.context.get("request")
+        if request and obj.sender_id != request.user.id:
+            return False
+
+        try:
+            payment = Payment.objects.get(package=obj)
+            return payment.status != Payment.PaymentStatus.SUCCEEDED
+        except Payment.DoesNotExist:
+            return True
 
     def get_latest_status(self, obj):
         latest = obj.actualizations.order_by("-created_at").first()
@@ -295,6 +330,13 @@ class SendPackageSerializer(serializers.Serializer):
         #     courier_id=None,
         #     warehouse_id=None,
         # )
+        Actualization.objects.create(
+            package_id=package,
+            status=Actualization.PackageStatus.CREATED,
+            route_remaining=None,
+            courier_id=None,
+            warehouse_id=None,
+        )
 
         return package
 

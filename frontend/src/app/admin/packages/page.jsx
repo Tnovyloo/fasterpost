@@ -269,6 +269,9 @@ export default function PackagesAdminPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Stash Reservation
+                  </th>
                   <th className="px-6 py-3">Actions</th>
                 </tr>
               </thead>
@@ -319,19 +322,25 @@ export default function PackagesAdminPage() {
                       </span>
                     </td>
 
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-sm">
+                      {calculateTimeLeft(pkg.reserved_until)}
+                    </td>
+
+                    <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => fetchPackageDetails(pkg.id)}
                         className="text-blue-600 hover:text-blue-800 font-medium"
                       >
                         View Details
                       </button>
-                      <button
-                        onClick={() => handleDeletePackage(pkg.id)}
-                        className="text-red-600 hover:text-red-800 font-medium ml-3"
-                      >
-                        Delete
-                      </button>
+                      {pkg.payment_status !== "succeeded" && (
+                        <button
+                          onClick={() => handleDeletePackage(pkg.id)}
+                          className="text-red-600 hover:text-red-800 font-medium ml-3"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

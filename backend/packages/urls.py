@@ -25,6 +25,11 @@ urlpatterns = [
     path(
         "send-package/<uuid:package_id>", SendPackageView.as_view(), name="edit-package"
     ),
+    path(
+        "send-package/<uuid:package_id>/",
+        SendPackageView.as_view(),
+        name="delete-package",
+    ),
     path("open-stash/<uuid:package_id>/", OpenStashView.as_view(), name="open-stash"),
     path(
         "collect/<uuid:package_id>/",
