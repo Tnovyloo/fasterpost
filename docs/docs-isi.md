@@ -1,5 +1,10 @@
 # Dokumentacja Algorytmów Logistycznych FasterPost
 
+```
+Oleksii Nawrocki
+Tomasz Nowak
+```
+
 ## Spis Treści
 1. Wstęp
 2. Logika Tras Krajowych (Hub-to-Hub)
