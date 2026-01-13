@@ -164,8 +164,6 @@ class Route(models.Model):
     
     def __str__(self):
         return f"{self.route_type.title()} Route {self.id} - {self.courier.email}"
-    
-    # ... (start_route / complete_route methods can stay same)
 
 class RouteStop(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -197,3 +195,4 @@ class RoutePackage(models.Model):
     
     class Meta:
         unique_together = ['route', 'package']
+        
