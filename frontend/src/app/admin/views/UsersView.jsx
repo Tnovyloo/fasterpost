@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import api from "@/axios/api";
 import { ArrowLeft } from "lucide-react"; // Import Arrow
 
@@ -34,6 +34,7 @@ export default function AdminAccountsPage({ goBack }) { // Receive goBack prop
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   // FORM STATE
   const initialForm = {
@@ -53,63 +54,38 @@ export default function AdminAccountsPage({ goBack }) { // Receive goBack prop
   const [form, setForm] = useState(initialForm);
 
   // FETCH DATA
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get("/api/admin/accounts/");
-        setAccounts(res.data.results || res.data || []);
-        setError(null);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load accounts");
-        setAccounts([]);
-      } finally {
-        setLoading(false);
+  const fetchAccounts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.append("page", page);
+      params.append("page_size", pageSize);
+      if (search) params.append("search", search);
+      if (roleFilter) params.append("role", roleFilter);
+      
+      if (sortField) {
+        const prefix = sortDir === "desc" ? "-" : "";
+        params.append("ordering", `${prefix}${sortField}`);
       }
-    };
+
+      const res = await api.get(`/api/admin/accounts/?${params.toString()}`);
+      const data = res.data;
+      
+      setAccounts(data.results || []);
+      setTotalPages(Math.ceil((data.count || 0) / pageSize) || 1);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load accounts");
+      setAccounts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, search, roleFilter, sortField, sortDir]);
+
+  useEffect(() => {
     fetchAccounts();
-  }, []);
-
-  // FILTERED + SORTED + PAGINATED DATA
-  const filteredAccounts = useMemo(() => {
-    let data = [...accounts];
-
-    // SEARCH FILTER
-    if (search) {
-      const s = search.toLowerCase();
-      data = data.filter(
-        (a) =>
-          a.email.toLowerCase().includes(s) ||
-          a.username.toLowerCase().includes(s)
-      );
-    }
-
-    // ROLE FILTER
-    if (roleFilter) {
-      data = data.filter((a) => a.role === roleFilter);
-    }
-
-    // SORT
-    data.sort((a, b) => {
-      let valA = a[sortField];
-      let valB = b[sortField];
-      if (typeof valA === "string") valA = valA.toLowerCase();
-      if (typeof valB === "string") valB = valB.toLowerCase();
-
-      if (valA > valB) return sortDir === "asc" ? 1 : -1;
-      if (valA < valB) return sortDir === "asc" ? -1 : 1;
-      return 0;
-    });
-
-    return data;
-  }, [accounts, search, roleFilter, sortField, sortDir]);
-
-  const totalPages = Math.ceil(filteredAccounts.length / pageSize);
-  const paginatedAccounts = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredAccounts.slice(start, start + pageSize);
-  }, [filteredAccounts, page, pageSize]);
+  }, [fetchAccounts]);
 
   // HANDLERS
   const handleInputChange = (e) => {
@@ -148,8 +124,7 @@ export default function AdminAccountsPage({ goBack }) { // Receive goBack prop
       }
       
       resetForm();
-      const res = await api.get("/api/admin/accounts/");
-      setAccounts(res.data.results || res.data || []);
+      fetchAccounts();
     } catch (err) {
       console.error(err);
       const errorMsg = err.response?.data 
@@ -319,14 +294,14 @@ export default function AdminAccountsPage({ goBack }) { // Receive goBack prop
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {paginatedAccounts.length === 0 ? (
+                {accounts.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="px-6 py-12 text-center">
                       No accounts found
                     </td>
                   </tr>
                 ) : (
-                  paginatedAccounts.map((acc) => (
+                  accounts.map((acc) => (
                     <tr key={acc.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 font-mono text-sm text-blue-600">
                         {acc.email}
