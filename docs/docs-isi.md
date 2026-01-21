@@ -163,3 +163,52 @@ while remaining_postmats is not empty:
 
 route.append(Warehouse) // Powrót
 ```
+
+## 5. Screenshoty działania aplikacji
+### Główne ekrany i Autentykacja
+![Strona główna](/docs/screenshots/1_home_page.png)
+![Ekran logowania](/docs/screenshots/2_login_screen.png)
+![Ekran rejestracji - puste pola](/docs/screenshots/3_register_screen.png)
+![Ekran rejestracji - niepoprawne dane](/docs/screenshots/3_register_screen_invalid_input.png)
+![Ekran rejestracji - poprawne dane](/docs/screenshots/3_register_screen_valid_input.png)
+![Weryfikacja adresu email](/docs/screenshots/4_email_verification.png)
+![Najczęściej zadawane pytania FAQ](/docs/screenshots/5_faq.png)
+
+### Panel Klienta Biznesowego
+![Strona główna dla biznesu](/docs/screenshots/6_business_homepage.png)
+![Dashboard biznesowy](/docs/screenshots/6_business_dashboard.png)
+![Zarządzanie magazynami biznesowymi](/docs/screenshots/6_business_magazines.png)
+![Zarządzanie paczkami biznesowymi](/docs/screenshots/6_business_packages.png)
+![Historia płatności biznesowych](/docs/screenshots/6_business_payments.png)
+![Wysyłka masowa - płatność zbiorcza](/docs/screenshots/6_business_bulk_payment.png)
+![Składanie zapytania biznesowego](/docs/screenshots/6_business_request.png)
+![Formularz wysyłania paczek biznesowych](/docs/screenshots/6_business_sending_packages.png)
+
+### Panel Użytkownika Indywidualnego
+![Dashboard użytkownika](/docs/screenshots/7_user_dashboard.png)
+![Użytkownik - nadchodzące paczki](/docs/screenshots/7_user_dashboard_incoming_packages.png)
+![Użytkownik - ustawienia konta](/docs/screenshots/7_user_dashboard_settings.png)
+![Formularz nadawania paczki](/docs/screenshots/8_normal_user_sending_package.png)
+![Ostrzeżenie przy nadawaniu paczki](/docs/screenshots/8_normal_user_sending_package_warning.png)
+![Ekran płatności](/docs/screenshots/8_normal_user_payment.png)
+![Potwierdzenie płatności zakończonej sukcesem](/docs/screenshots/8_normal_user_payment_successfull.png)
+![Wybór skrytki w paczkomacie](/docs/screenshots/8_normal_user_place_in_stash.png)
+![Śledzenie przesyłki](/docs/screenshots/9_tracking_package.png)
+![Odbieranie paczki z automatu](/docs/screenshots/10_pickup_package.png)
+
+### Panel Administratora
+![Główny pulpit administratora](/docs/screenshots/11_admin_dashboard.png)
+![Zarządzanie logistyką w panelu admina](/docs/screenshots/11_admin_logistics.png)
+![Zarządzanie wszystkimi paczkami](/docs/screenshots/12_admin_packages.png)
+![Zarządzanie automatami i skrytkami](/docs/screenshots/12_admin_postmats_and_stashes.png)
+![Zarządzanie magazynami centralnymi](/docs/screenshots/12_admin_warehouses.png)
+
+### Logika ISI i Kurierzy
+![Panel kontrolny logistyki ogólny](/docs/screenshots/13_isi_logistic_control.png)
+![Panel kontrolny logistyki - Warszawa](/docs/screenshots/13_isi_logistic_control_warsaw.png)
+![Panel zarządzania magazynem krajowym](/docs/screenshots/13_isi_warehouse_panel.png)
+![Podsumowanie i start trasy krajowej](/docs/screenshots/13_isi_warehouse_panel_start_route.png)
+![Panel kuriera lokalnego](/docs/screenshots/13_isi_localcourier_panel.png)
+![Pobieranie paczek z magazynu przez kuriera lokalnego](/docs/screenshots/13_isi_localcourier_take_packages.png)
+![Umieszczanie paczek w automatach przez kuriera](/docs/screenshots/13_isi_localcourier_put_packages.png)
+![Finalizacja trasy kuriera lokalnego](/docs/screenshots/13_isi_localcourier_final.png)
