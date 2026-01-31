@@ -1,0 +1,126 @@
+\chapter{Architektura i projektowanie techniczne}
+
+Niniejszy rozdział poświęcono szczegółowej charakterystyce technicznej systemu FasterPost. Przedstawiono w nim przyjętą architekturę oprogramowania, uzasadniono dobór technologii implementacyjnych oraz omówiono strukturę danych wraz z mapowaniem obiektowo-relacyjnym (ORM). Analizie poddano również organizację kodu warstwy prezentacji.
+
+\section{Architektura systemu}
+
+System FasterPost został zaprojektowany w oparciu o architekturę wielowarstwową typu klient-serwer, z wyraźnym odseparowaniem logiki biznesowej (Backend) od warstwy prezentacji (Frontend). Komunikacja między tymi elementami odbywa się w sposób bezstanowy za pośrednictwem interfejsu REST API.
+
+Głównym założeniem architektonicznym było zastosowanie wzorca \textbf{Modularnego Monolitu}. Oznacza to, że mimo iż backend funkcjonuje jako pojedyncza jednostka wdrożeniowa, jego wnętrze zostało logicznie podzielone na niezależne domeny biznesowe (aplikacje), takie jak: logistyka, obsługa paczek, płatności czy zarządzanie użytkownikami. Taka separacja ułatwia zarządzanie kodem i ewentualną przyszłą migrację do architektury mikroserwisowej.
+
+\subsection{Diagram klas}
+
+Wizualizację logiczną struktury systemu oraz zależności między kluczowymi komponentami przedstawiono na diagramie klas (Rys. \ref{fig:class_diagram}). Ukazuje on główne serwisy oraz obiekty domenowe wykorzystywane w procesach biznesowych.
+
+\begin{figure}[htbp]
+    \centering
+    % Osadzenie diagramu klas (poglądowy)
+    \includegraphics[width=1.0\textwidth]{figures/chapter3/classDiagram.eps}
+    \caption{Diagram klas systemu FasterPost (widok logiczny)}
+    \label{fig:class_diagram}
+\end{figure}
+
+\section{Dobór technologii (Technology Stack)}
+
+Decyzje technologiczne zostały podjęte w oparciu o wymagania dotyczące wydajności, bezpieczeństwa typów danych oraz szybkości wytwarzania oprogramowania.
+
+\subsection{Warstwa serwerowa (Backend)}
+Fundamentem systemu jest język \textbf{Python 3.12} współpracujący z frameworkiem \textbf{Django 5.0}. Wybór ten podyktowany był dojrzałością ekosystemu oraz wbudowanymi mechanizmami bezpieczeństwa (ochrona przed atakami CSRF, SQL Injection).
+\begin{itemize}
+    \item \textbf{Django REST Framework (DRF):} Wykorzystany do budowy ustandaryzowanego API, obsługi serializacji danych oraz autoryzacji opartej na tokenach.
+    \item \textbf{Celery \& Redis:} Zastosowane do obsługi zadań asynchronicznych i kolejkowania (np. generowanie tras, wysyłka e-maili), co zapobiega blokowaniu głównego wątku aplikacji podczas skomplikowanych obliczeń logistycznych.
+\end{itemize}
+
+\subsection{Warstwa prezentacji (Frontend)}
+Aplikacja kliencka została zrealizowana przy użyciu frameworka \textbf{Next.js} (bazującego na bibliotece React). Wykorzystano nowoczesny model routingu (App Router), co pozwoliło na intuicyjne odwzorowanie struktury URL do fizycznej struktury plików. Za warstwę wizualną odpowiada **Tailwind CSS**, umożliwiający szybkie stylowanie komponentów zgodnie z podejściem \textit{Utility-First}.
+
+\section{Projekt warstwy danych (ORM)}
+
+Warstwa danych została zaimplementowana przy użyciu systemu ORM (Object-Relational Mapping) wbudowanego w framework Django. Pozwoliło to na definicję struktury bazy danych w postaci klas Pythona, zapewniając niezależność od silnika bazodanowego (w projekcie wykorzystano PostgreSQL). W celu zapewnienia unikalności rekordów w systemie rozproszonym, jako klucze główne (Primary Keys) zastosowano standard UUID.
+
+Poniżej omówiono kluczowe moduły danych zaimplementowane w systemie.
+
+\subsection{Moduł Użytkowników i Autoryzacji (Accounts)}
+Centralną encją jest model \texttt{User}, rozszerzający standardową klasę \texttt{AbstractBaseUser}. Model ten przechowuje dane uwierzytelniające oraz informacje profilowe. Zastosowano tu menadżera \texttt{MyAccountManager} do obsługi tworzenia kont.
+Wspierające modele to:
+\begin{itemize}
+    \item \texttt{EmailVerification}: Powiązany relacją jeden-do-jednego (\texttt{OneToOne}) z użytkownikiem, przechowujący tokeny weryfikacyjne.
+    \item \texttt{UserTOTP}: Odpowiedzialny za przechowywanie sekretów dla uwierzytelniania dwuskładnikowego (2FA), wykorzystujący bibliotekę \texttt{pyotp}.
+\end{itemize}
+
+\subsection{Moduł Paczek (Packages)}
+Model \texttt{Package} stanowi serce systemu operacyjnego. Kluczowym atrybutem jest \texttt{pickup\_code} (unikalny kod odbioru) oraz relacje kluczy obcych (\texttt{ForeignKey}) do:
+\begin{itemize}
+    \item \texttt{sender} i \texttt{receiver}: Wskazujące na użytkowników systemu.
+    \item \texttt{origin\_postmat} i \texttt{destination\_postmat}: Określające punkty startowe i końcowe procesu logistycznego.
+\end{itemize}
+Historia przesyłki jest przechowywana w modelu \texttt{Actualization}, który rejestruje każdą zmianę statusu (np. \textit{IN\_TRANSIT}, \textit{DELIVERED}) wraz ze znacznikiem czasowym oraz identyfikatorem kuriera lub magazynu dokonującego zmiany.
+
+\subsection{Moduł Logistyki (Logistics)}
+Ten moduł odwzorowuje fizyczną infrastrukturę sieci transportowej.
+\begin{itemize}
+    \item \texttt{Warehouse}: Reprezentuje centra logistyczne (Huby). Przechowuje koordynaty geograficzne (Latitude/Longitude) niezbędne do obliczania dystansów (zaimplementowana metoda Haversine'a).
+    \item \texttt{Route}: Definiuje trasę przypisaną do konkretnego kuriera i pojazdu na dany dzień.
+    \item \texttt{RouteStop}: Model reprezentujący pojedynczy punkt postoju na trasie. Co istotne, posiada on relacje do magazynu (\texttt{Warehouse}) ORAZ paczkomatu (\texttt{Postmat}), z których tylko jedna może być aktywna dla danego rekordu. Pozwala to na elastyczne planowanie tras łączących różne typy punktów.
+\end{itemize}
+
+\subsection{Moduł Infrastruktury (Postmats)}
+Model \texttt{Postmat} opisuje automaty paczkowe. Każdy paczkomat posiada zbiór skrytek zdefiniowanych w modelu \texttt{Stash}. Skrytki charakteryzują się rozmiarem (S, M, L) oraz statusem zajętości (\texttt{is\_empty}), co jest kluczowe dla algorytmów alokacji przesyłek.
+
+\subsection{Diagram ERD}
+Pełny schemat bazy danych, uwzględniający wszystkie relacje oraz typy atrybutów, przedstawiono na diagramie związków encji (Rys. \ref{fig:erd}).
+
+\begin{figure}[htbp]
+    \centering
+    % Osadzenie diagramu ERD
+    \includegraphics[width=1.0\textwidth]{figures/chapter3/ERD.eps}
+    \caption{Diagram związków encji (ERD) bazy danych systemu FasterPost}
+    \label{fig:erd}
+\end{figure}
+
+\clearpage
+
+\section{Struktura aplikacji klienckiej (Frontend)}
+
+Kod źródłowy aplikacji frontendowej został zorganizowany w strukturze katalogowej odzwierciedlającej podział na role użytkowników oraz domeny funkcjonalne. Wykorzystano mechanizm routingu Next.js, gdzie foldery wewnątrz katalogu \texttt{src/app} odpowiadają bezpośrednio ścieżkom URL w przeglądarce.
+
+Analiza drzewa projektu (Listing \ref{lst:tree}) wskazuje na następujące kluczowe obszary:
+
+\begin{enumerate}
+    \item \textbf{Strefa Publiczna:} Katalogi takie jak \texttt{login}, \texttt{register}, \texttt{track} oraz \texttt{find-point} są dostępne dla niezalogowanych użytkowników.
+    \item \textbf{Panel Administratora (\texttt{admin/})}: Wydzielona sekcja zawierająca podmoduły do zarządzania logistyką (\texttt{logistics}), użytkownikami (\texttt{users}) oraz infrastrukturą (\texttt{postmats}).
+    \item \textbf{Panel Kuriera (\texttt{courier/})}: Skupiony wokół dashboardu (\texttt{dashboard}), umożliwiającego szybki dostęp do listy zadań w terenie.
+    \item \textbf{Strefa Klienta Biznesowego (\texttt{business/})}: Zawiera dedykowane widoki do zarządzania magazynami własnymi (\texttt{magazines}) oraz płatnościami (\texttt{payments}).
+    \item \textbf{Strefa Użytkownika (\texttt{user/})}: Umożliwia zarządzanie profilem oraz podgląd szczegółów paczek (\texttt{packages/[id]}).
+\end{enumerate}
+
+\begin{lstlisting}[caption={Struktura katalogów aplikacji frontendowej}, label={lst:tree}]
+src/app
+|-- admin
+|   |-- business
+|   |-- logistics
+|   |-- packages
+|   |-- postmats
+|   |-- routes
+|   |-- users
+|-- business
+|   |-- dashboard
+|   |-- magazines
+|   |-- packages
+|   |-- payments
+|-- courier
+|   |-- dashboard
+|-- user
+|   |-- packages
+|   |   |-- [id]
+|   |-- profile
+|   |-- settings
+|-- api
+|-- login
+|-- register
+|-- track
+|-- send-package
+|-- pickup-package
+\end{lstlisting}
+
+Taka organizacja kodu wspiera modularność i ułatwia zarządzanie uprawnieniami (tzw. Route Protection), gdzie dostęp do poszczególnych gałęzi drzewa jest weryfikowany przez warstwę Middleware.

@@ -1,0 +1,10 @@
+\chapter*{Streszczenie}
+\label{cha:streszczenie}
+\makeatletter
+\addcontentsline{toc}{section}{\textbf{Streszczenie}}
+
+Celem niniejszej pracy inżynierskiej było zaprojektowanie i zaimplementowanie kompleksowego systemu logistycznego o nazwie \textbf{FasterPost}, wspierającego automatyzację procesów dostaw w modelu „Ostatniej Mili” (Last Mile) oraz transportu międzyhubowego (Line Haul). Projekt stanowi odpowiedź na rosnące zapotrzebowanie rynku e-commerce na wydajne systemy obsługi automatów paczkowych.
+
+W ramach projektu wytworzono wielomodułową platformę internetową, umożliwiającą użytkownikom nadawanie i śledzenie przesyłek, dokonywanie płatności online oraz bezobsługowy odbiór paczek ze skrytek. Kluczowym elementem systemu jest moduł logistyczny przeznaczony dla kurierów, który automatycznie generuje optymalne trasy przejazdu, oraz panel administracyjny służący do zarządzania infrastrukturą i monitorowania stanu sieci. W warstwie inżynierskiej zaimplementowano własne rozwiązania algorytmiczne dla problemu komiwojażera (TSP) oraz problemu routingu pojazdów z ograniczeniami (CVRP), co pozwoliło na dynamiczną optymalizację łańcucha dostaw.
+
+System został zrealizowany w architekturze klient-serwer. Warstwa serwerowa (Backend) powstała w języku \textbf{Python 3.12} z wykorzystaniem frameworka \textbf{Django} oraz \textbf{Django REST Framework}. Jako system zarządzania bazą danych wybrano \textbf{PostgreSQL}. Do obsługi zadań asynchronicznych i kolejkowania procesów logistycznych wykorzystano technologie \textbf{Celery} oraz \textbf{Redis}. Warstwa prezentacji (Frontend) została zaimplementowana w oparciu o framework \textbf{Next.js} (React) oraz bibliotekę \textbf{Tailwind CSS}, zapewniając responsywność i dostępność na urządzeniach mobilnych. Całość rozwiązania została konteneryzowana przy użyciu platformy Docker.

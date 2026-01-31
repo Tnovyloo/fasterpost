@@ -1,0 +1,45 @@
+\chapter*{Suplement: Rejestr wykorzystania narzędzi AI}
+\addcontentsline{toc}{chapter}{Suplement: Rejestr wykorzystania narzędzi AI}
+
+W niniejszym suplemencie zamieszczono przykładowe zapytania (prompty) skierowane do narzędzi Generative AI, które wspomogły kluczowe etapy realizacji projektu FasterPost.
+
+\section*{Kategoria: Logika i Algorytmy}
+
+Poniższy prompt posłużył do zaprojektowania wstępnej koncepcji algorytmu optymalizacji tras kurierskich (Last Mile).
+
+\begin{prompt}[htbp]
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily, breaklines=true]
+Jako Senior Python Developer, pomóż mi zaprojektować serwis "RouteOptimizer" w Django.
+
+Dane wejściowe:
+- Lista punktów (Paczkomaty) z koordynatami (lat, lon).
+- Punkt startowy (Magazyn).
+
+Wymagania:
+1. Użyj biblioteki geopy do obliczania dystansu (formuła Haversine).
+2. Zastosuj algorytm "Nearest Neighbor" (Najbliższy Sąsiad) do wyznaczenia kolejności odwiedzin.
+3. Kod ma być czysty, otypowany i uwzględniać obsługę błędów.
+
+Wygeneruj szkielet klasy w Pythonie.
+\end{lstlisting}
+\caption{Prompt inicjujący prace nad modułem optymalizacji tras}
+\label{prmt:tsp}
+\end{prompt}
+
+\section*{Kategoria: Frontend i UI}
+
+Prompt wykorzystany do szybkiego prototypowania widoku dla kurierów w technologii Next.js.
+
+\begin{prompt}[htbp]
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily, breaklines=true]
+Stwórz komponent React (Next.js App Router) dla "Courier Dashboard".
+Stylizacja: Tailwind CSS (Utility-First).
+
+Funkcjonalność:
+- Wyświetl listę przesyłek w formie kafelków ("Task Cards").
+- Każdy kafelek musi zawierać: Adres, Status przesyłki i przycisk "Zmień status".
+- Widok musi być w pełni responsywny (Mobile First), przystosowany do obsługi na smartfonie.
+\end{lstlisting}
+\caption{Prompt wspierający tworzenie interfejsu aplikacji mobilnej kuriera}
+\label{prmt:frontend}
+\end{prompt}

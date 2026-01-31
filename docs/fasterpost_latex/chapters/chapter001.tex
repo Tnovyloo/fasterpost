@@ -1,0 +1,81 @@
+\chapter{Wstęp i analiza biznesowa}
+
+\section{Opis świata rzeczywistego i cel systemu}
+
+System \textbf{FasterPost} stanowi zintegrowaną platformę logistyczną, której głównym celem jest automatyzacja procesów nadawania, transportu i odbioru przesyłek w sieci skrytek paczkomatowych. Interakcja z systemem rozpoczyna się w momencie, gdy użytkownik – niezależnie czy jest to klient indywidualny, czy biznesowy – korzysta z aplikacji webowej w celu wypełnienia formularza nadawczego i realizacji płatności online.
+
+Po pomyślnej transakcji system natychmiastowo rezerwuje odpowiednią skrytkę, umożliwiając nadawcy jej otwarcie za pomocą aplikacji, a następnie umieszczenie paczki wewnątrz maszyny. Zmiana statusu przesyłki następuje automatycznie, co uruchamia proces śledzenia w czasie rzeczywistym.
+
+Logistyczna obsługa przesyłki w \textbf{FasterPost} opiera się na skoordynowanej pracy kurierów i systemów magazynowych. Kurier lokalny, wyposażony w dedykowany terminal mobilny, odbiera zgromadzone w paczkomatach przesyłki i transportuje je do magazynu lokalnego. Stamtąd trafiają one do sieci transportu międzymagazynowego (Line Haul). Dzięki zaimplementowanym algorytmom optymalizacji tras, paczki sprawnie przemieszczają się między regionami, by finalnie trafić ponownie w ręce lokalnego kuriera, który umieszcza je w docelowym paczkomacie.
+
+Cała infrastruktura zarządzana jest poprzez system dedykowanych paneli, które dostosowują dostępne funkcjonalności do roli zalogowanego użytkownika. Klienci indywidualni skupiają się na pojedynczych operacjach, natomiast użytkownicy biznesowi mają dostęp do narzędzi masowego generowania etykiet. Nad stabilnością czuwa administrator, monitorujący raporty błędów i konfigurację sieci paczkomatów.
+
+\section{Analiza rozwiązań istniejących (SOTA)}
+
+Analiza rynku usług kurierskich (stan na grudzień 2025) pozwala wskazać kluczowe rozwiązania stanowiące punkt odniesienia dla systemu \textbf{FasterPost}:
+
+\subsection{InPost}
+Lider rynku oferujący sieć ponad 27 000 paczkomatów dostępnych w trybie 24/7. Nadanie i odbiór odbywa się poprzez aplikację mobilną (kod QR) lub kod PIN. Płatności realizowane są w pełni online. System charakteryzuje się zaawansowanym śledzeniem przesyłek oraz wdrażaniem autonomicznych maszyn.
+
+\subsection{DPD Pickup}
+Rozwiązanie hybrydowe, łączące automaty paczkowe z siecią punktów partnerskich (sklepy, stacje paliw). Wiele urządzeń to nowoczesne, bezprzewodowe automaty typu SwipBox Infinity. Aplikacja mobilna DPD Mobile umożliwia precyzyjną lokalizację punktów na mapie.
+
+\subsection{Orlen Paczka}
+Sieć obejmująca własne automaty oraz punkty partnerskie. Obsługa procesów nadawczo-odbiorczych realizowana jest przez aplikację Orlen Vitay, a standardowy czas na odbiór wynosi 3 dni z możliwością przedłużenia.
+
+\section{Wymagania funkcjonalne}
+
+Na podstawie analizy potrzeb użytkowników zdefiniowano następujące wymagania funkcjonalne systemu:
+
+\subsection{Obsługa użytkowników}
+\begin{itemize}
+    \item Rejestracja i logowanie użytkowników (klientów, kurierów, administratorów) poprzez zunifikowany panel.
+    \item Edycja danych profilowych (dane kontaktowe, ustawienia bezpieczeństwa).
+    \item Weryfikacja tożsamości poprzez wiadomość e-mail.
+\end{itemize}
+
+\subsection{Obsługa paczek}
+\begin{itemize}
+    \item Tworzenie przesyłki poprzez interaktywny formularz.
+    \item Generowanie etykiety nadawczej z unikalnym numerem śledzenia (Tracking ID).
+    \item Wybór paczkomatu nadawczego i docelowego z mapy.
+    \item Śledzenie statusu przesyłki w czasie rzeczywistym.
+    \item Obsługa płatności online oraz kalkulator kosztów w zależności od gabarytu (S, M, L).
+\end{itemize}
+
+\subsection{System kuriera}
+\begin{itemize}
+    \item Automatyczne planowanie optymalnej trasy na podstawie lokalizacji paczkomatów.
+    \item Podgląd listy przesyłek przypisanych do bieżącego zlecenia (manifest).
+    \item Mobilna obsługa zmiany statusów (np. „Odebrano z magazynu”, „Umieszczono w skrytce”).
+\end{itemize}
+
+\subsection{Panel administracyjny}
+\begin{itemize}
+    \item Zarządzanie bazą użytkowników, paczek i kurierów (operacje CRUD).
+    \item Podgląd raportów błędów, statystyk dostaw i obciążenia poszczególnych maszyn.
+    \item Konfiguracja parametrów globalnych systemu.
+\end{itemize}
+
+\subsection{System paczkomatowy}
+\begin{itemize}
+    \item Dynamiczna rezerwacja skrytki w momencie opłacenia przesyłki.
+    \item Zdalne otwieranie skrytek z poziomu aplikacji.
+    \item System powiadomień o gotowości paczki do odbioru.
+\end{itemize}
+
+\section{Wymagania niefunkcjonalne}
+
+Aby zapewnić wysoką jakość usług, system \textbf{FasterPost} musi spełniać szereg wymagań jakościowych:
+
+\begin{enumerate}
+    \item \textbf{Wydajność i skalowalność:} System powinien być przygotowany na obsługę dużej liczby równoległych zapytań, szczególnie w okresach wzmożonego ruchu (np. święta). Czas odpowiedzi API dla kluczowych operacji nie powinien przekraczać 1 sekundy.
+    \item \textbf{Bezpieczeństwo:}
+    \begin{itemize}
+        \item Hasła użytkowników muszą być przechowywane w formie zaszyfrowanej (algorytm bcrypt).
+        \item Wymagana jest implementacja mechanizmów autoryzacji opartych na rolach.
+        \item Wszystkie działania administracyjne muszą być logowane.
+    \end{itemize}
+    \item \textbf{Użyteczność:} Interfejs użytkownika (Web i Mobile) musi być intuicyjny i responsywny (RWD), dostosowując się do urządzeń mobilnych.
+    \item \textbf{Dokumentacja:} System musi posiadać pełną dokumentację techniczną API oraz instrukcję wdrożenia.
+\end{enumerate}
