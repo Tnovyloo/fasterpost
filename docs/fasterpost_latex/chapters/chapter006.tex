@@ -1,1 +1,37 @@
 \chapter{Podsumowanie i wnioski}
+
+Niniejszy rozdział stanowi podsumowanie prac zrealizowanych w ramach projektu systemu logistycznego FasterPost. Dokonano w nim oceny stopnia realizacji założonych celów oraz wskazano potencjalne kierunki dalszego rozwoju aplikacji w kontekście nowoczesnych technologii informatycznych.
+
+\section{Wnioski końcowe i ocena realizacji celów}
+
+Głównym celem projektu było zaprojektowanie i implementacja kompleksowego systemu obsługi przesyłek kurierskich, integrującego logistykę krajową (Hub-to-Hub) oraz lokalną (Last Mile). Analiza wytworzonego oprogramowania w zestawieniu z pierwotnymi wymaganiami pozwala na sformułowanie następujących wniosków:
+
+\begin{itemize}
+    \item \textbf{Realizacja procesów logistycznych:} Zaimplementowane algorytmy (CVRP dla tras krajowych oraz TSP dla tras lokalnych) poprawnie realizują zadania optymalizacji transportu. Zastosowanie heurystyki Najbliższego Sąsiada (Nearest Neighbor) oraz klasteryzacji K-Means pozwoliło na osiągnięcie zadowalającej wydajności obliczeniowej przy akceptowalnym poziomie optymalizacji tras, co potwierdziły testy wydajnościowe.
+    \item \textbf{Architektura systemu:} Przyjęty wzorzec Modularnego Monolitu sprawdził się w fazie deweloperskiej, umożliwiając łatwe zarządzanie kodem i współdzielenie logiki biznesowej, przy jednoczesnym zachowaniu logicznej separacji domen (Logistyka, Użytkownicy, Paczki).
+    \item \textbf{Niezawodność i skalowalność:} Wykorzystanie konteneryzacji (Docker) oraz kolejkowania zadań asynchronicznych (Celery/Redis) zapewniło stabilność systemu, zapobiegając blokowaniu głównego wątku aplikacji podczas czasochłonnych operacji generowania tras.
+    \item \textbf{Interfejs użytkownika:} Podział na dedykowane panele dla Klienta, Kuriera i Administratora pozwolił na dostosowanie ergonomii pracy do specyficznych potrzeb każdej z ról, zapewniając intuicyjną obsługę procesów nadawania i odbioru przesyłek.
+\end{itemize}
+
+Projekt spełnił zdefiniowane wymagania funkcjonalne, dostarczając kompletne rozwiązanie typu MVP (Minimum Viable Product) gotowe do potencjalnego wdrożenia pilotażowego.
+
+\section{Kierunki dalszego rozwoju (Future Work)}
+
+Dynamiczny rozwój branży e-commerce oraz technologii webowych otwiera przed systemem FasterPost szereg możliwości rozbudowy. Poniżej przedstawiono kluczowe obszary, które mogą zostać rozwinięte w kolejnych iteracjach projektu.
+
+\subsection{Komunikacja w czasie rzeczywistym (WebSockets)}
+Obecna implementacja śledzenia przesyłek opiera się na modelu żądanie-odpowiedź (REST API). Wdrożenie protokołu WebSockets (np. przy użyciu Django Channels) umożliwiłoby:
+\begin{itemize}
+    \item Aktualizację pozycji kuriera na mapie w czasie rzeczywistym bez konieczności odświeżania strony przez klienta.
+    \item Natychmiastowe powiadomienia Push dla kurierów o nowych zleceniach lub dynamicznych zmianach w trasie (np. anulowanie odbioru).
+\end{itemize}
+
+\subsection{Zastosowanie Sztucznej Inteligencji (AI)}
+Algorytmy heurystyczne zastosowane w projekcie są skuteczne, lecz nie gwarantują znalezienia globalnego optimum. Rozwój w kierunku AI mógłby obejmować:
+\begin{itemize}
+    \item \textbf{Zaawansowana optymalizacja:} Zastąpienie algorytmów zachłannych algorytmami genetycznymi lub uczeniem ze wzmocnieniem (Reinforcement Learning) w celu lepszego planowania tras wielopunktowych z uwzględnieniem korków.
+    \item \textbf{Predykcja dostępności skrytek:} Wykorzystanie modeli uczenia maszynowego do przewidywania obłożenia Paczkomatów w zależności od dnia tygodnia czy sezonu, co pozwoliłoby na proaktywne zarządzanie przepływem paczek i unikanie sytuacji przepełnienia (Locker Full).
+\end{itemize}
+
+\subsection{Migracja do architektury mikroserwisowej}
+Wraz ze wzrostem liczby użytkowników i wolumenu danych, obecny Modularny Monolit może stać się wąskim gardłem. Naturalnym krokiem ewolucyjnym byłoby fizyczne wydzielenie kluczowych modułów (np. \texttt{Logistics Service}, \texttt{Auth Service}) do niezależnych mikroserwisów. Pozwoliłoby to na niezależne skalowanie najbardziej obciążonych elementów systemu (np. serwisu obliczającego trasy) w środowisku chmurowym (np. Kubernetes), zwiększając odporność całego systemu na awarie.

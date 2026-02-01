@@ -1,1 +1,92 @@
 \chapter{Realizacja logiki logistycznej i algorytmów}
+
+W niniejszym rozdziale przedstawiono szczegóły implementacyjne kluczowych algorytmów sterujących przepływem przesyłek w systemie FasterPost. Logika została podzielona na dwie główne warstwy: logistykę krajową (transport między magazynami) oraz logistykę lokalną (dostawy ostatniej mili do Paczkomatów).
+
+\section{Logistyka krajowa: Implementacja problemu CVRP}
+
+Logistyka krajowa odpowiada za transport przesyłek pomiędzy magazynami głównymi (Hub-to-Hub). Problem ten został zamodelowany jako wariant problemu trasowania pojazdów z ograniczeniami pojemności (CVRP - Capacitated Vehicle Routing Problem).
+
+Implementacja znajduje się w klasie \texttt{RoutingService} w module \texttt{logistics}. Algorytm uwzględnia dwa kluczowe ograniczenia:
+\begin{itemize}
+    \item \textbf{Pojemność pojazdu} (\texttt{vehicle\_capacity}): Maksymalna liczba przesyłek, jaką może zabrać jeden kurier (domyślnie 50).
+    \item \textbf{Czas pracy} (\texttt{MAX\_WORK\_DAY\_MINUTES}): Maksymalny czas trwania trasy, ustalony na 720 minut (12 godzin).
+\end{itemize}
+
+\subsection{Heurystyka Najbliższego Sąsiada (Nearest Neighbor)}
+
+Ze względu na złożoność obliczeniową problemu CVRP (NP-trudny), zastosowano podejście heurystyczne typu zachłannego (Greedy). Metoda \texttt{\_build\_optimized\_tour} iteracyjnie wybiera najbliższy magazyn docelowy, do którego kurier może dotrzeć, nie przekraczając limitu czasu pracy.
+
+\begin{lstlisting}[language=Python, caption=Fragment algorytmu wyboru kolejnego celu w logistyce krajowej]
+while remaining_dests:
+    best_next = None
+    best_dist = float('inf')
+    
+    # Wybor najblizszego magazynu (Nearest Neighbor)
+    for candidate_wh in remaining_dests:
+        d = self.distance_service.get_distance(
+            str(current_node.id), str(candidate_wh.id)
+        )
+        if not math.isinf(d) and d < best_dist:
+            best_dist = d
+            best_next = candidate_wh
+\end{lstlisting}
+
+System wykorzystuje również algorytm przeszukiwania wszerz (BFS) zaimplementowany w metodzie \texttt{\_find\_shortest\_graph\_path}, aby znaleźć drogę w grafie połączeń między magazynami, jeśli nie istnieje bezpośrednie połączenie.
+
+\section{Logistyka lokalna: Ostatnia mila i TSP}
+
+Logistyka lokalna (\textit{Last Mile Delivery}) obsługiwana jest przez klasę \texttt{LocalRoutingService}. Proces ten składa się z trzech etapów: grupowania przesyłek według stref, alokacji skrytek oraz wyznaczania optymalnej trasy kuriera.
+
+\subsection{Klasteryzacja i podział na strefy}
+
+System operuje na pojęciu stref (\texttt{Zone}), które reprezentują terytoria przypisane do konkretnego magazynu. Choć definicja stref jest statyczna w momencie planowania trasy, ich kształt wynika z wcześniejszej analizy gęstości Paczkomatów (koncepcyjnie opartej na klasteryzacji K-Means).
+
+W metodzie \texttt{generate\_local\_routes}, przesyłki są grupowane według strefy docelowego Paczkomatu:
+
+\begin{lstlisting}[language=Python, caption=Grupowanie przesyłek według stref]
+packages_by_zone = defaultdict(list)
+for pkg in local_packages:
+    zone = pkg.destination_postmat.zone
+    if zone:
+        packages_by_zone[zone.id].append(pkg)
+\end{lstlisting}
+
+\subsection{Algorytm TSP i formuła Haversine'a}
+
+Dla każdej strefy generowana jest trasa realizująca problem komiwojażera (TSP). Podobnie jak w logistyce krajowej, zastosowano algorytm najbliższego sąsiada, co zapewnia szybki czas obliczeń przy akceptowalnej jakości tras dla lokalnych dystansów.
+
+Odległości między punktami (Paczkomatami) obliczane są przy użyciu formuły Haversine'a, która uwzględnia krzywiznę Ziemi, co jest kluczowe przy wykorzystaniu współrzędnych geograficznych (GPS).
+
+\begin{lstlisting}[language=Python, caption=Implementacja formuły Haversine'a]
+def _haversine(self, lat1, lon1, lat2, lon2):
+    R = 6371.0  # Promien Ziemi w km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2 +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(dlon / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+\end{lstlisting}
+
+Metoda \texttt{\_create\_zone\_route} tworzy sekwencję przystanków (\texttt{RouteStop}), zaczynając i kończąc w magazynie, minimalizując dystans przebyty przez kuriera wewnątrz strefy.
+
+\section{Zarządzanie skrytkami i weryfikacja dostępności}
+
+Kluczowym elementem systemu FasterPost jest dynamiczne zarządzanie dostępnością skrytek w Paczkomatach. Przed zaplanowaniem trasy, system musi zagwarantować, że w docelowym Paczkomacie znajduje się wolna skrytka o odpowiednim rozmiarze.
+
+\subsection{Algorytm alokacji (Allocation Phase)}
+
+Metoda \texttt{\_allocate\_stashes} realizuje logikę dopasowania ("Best Fit" z priorytetem rozmiaru). Algorytm sprawdza dostępne skrytki (\texttt{is\_empty=True}) i rezerwuje je dla konkretnych paczek.
+
+\begin{lstlisting}[language=Python, caption=Logika dopasowania rozmiaru paczki do skrytki]
+if p.size == 'small':
+    if small_stashes: selected_stash = small_stashes.pop()
+    elif medium_stashes: selected_stash = medium_stashes.pop()
+    elif large_stashes: selected_stash = large_stashes.pop()
+elif p.size == 'medium':
+    if medium_stashes: selected_stash = medium_stashes.pop()
+    elif large_stashes: selected_stash = large_stashes.pop()
+\end{lstlisting}
+
+Jeśli alokacja się powiedzie, skrytka otrzymuje tymczasową rezerwację, która jest finalizowana w momencie utworzenia obiektu \texttt{RoutePackage}. W przypadku braku miejsc (zbiór \texttt{failed\_pkgs}), system automatycznie generuje aktualizację statusu paczki z informacją o opóźnieniu ("Destination locker full"), co pozwala na ponowienie próby w następnym cyklu planowania.
