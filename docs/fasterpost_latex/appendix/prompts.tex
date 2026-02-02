@@ -3,7 +3,7 @@
 
 Zgodnie z wymogami projektowymi, poniżej przedstawiono zestawienie kluczowych zapytań (promptów) skierowanych do modeli językowych (LLM), które zostały wykorzystane na różnych etapach tworzenia systemu FasterPost. Zapytania te wspierały proces generowania kodu, optymalizacji algorytmów logistycznych oraz tworzenia dokumentacji technicznej.
 
-\begin{table}[htbp]
+\begin{table}[H]
     \centering
     \caption{Zbiór najważniejszych promptów wykorzystanych w projekcie}
     \label{tab:prompts}
@@ -15,7 +15,7 @@ Zgodnie z wymogami projektowymi, poniżej przedstawiono zestawienie kluczowych z
         1 & Algorytmy (Logistyka) & Jak zaimplementować heurystykę Nearest Neighbor dla problemu CVRP (Capacitated Vehicle Routing Problem) w Pythonie, uwzględniając ograniczenie czasu pracy kierowcy do 12 godzin? \\ \hline
         2 & Architektura (Backend) & Zaprojektuj schemat bazy danych w Django ORM dla systemu kurierskiego, uwzględniając relacje między modelami User, Package, Warehouse i Route. \\ \hline
         3 & DevOps (Docker) & Przygotuj plik docker-compose.yml dla aplikacji składającej się z backendu Django, frontendu Next.js, bazy PostgreSQL oraz brokera Redis. \\ \hline
-        4 & Algorytmy (Geo) & Jak wykorzystać bibliotekę scikit-learn i algorytm K-Means do grupowania punktów GPS (paczkomatów) w strefy logistyczne? \\ \hline
+        4 & Algorytmy (Geo) & Jak wykorzystać algorytm K-Means do grupowania punktów GPS (paczkomatów) w strefy logistyczne? \\ \hline
         5 & Bezpieczeństwo & Jak zaimplementować bezpieczne logowanie w Django REST Framework przy użyciu tokenów autoryzacyjnych przechowywanych w ciasteczkach HttpOnly? \\ \hline
         6 & Frontend (Next.js) & Stwórz strukturę katalogów dla aplikacji Next.js (App Router) z podziałem na panel klienta, kuriera i administratora. \\ \hline
         7 & Zadania w tle & Konfiguracja Celery z Redisem w Django do asynchronicznego przetwarzania zadań generowania tras logistycznych i wysyłki e-maili. \\ \hline
@@ -29,3 +29,325 @@ Zgodnie z wymogami projektowymi, poniżej przedstawiono zestawienie kluczowych z
         15 & Debugowanie & Rozwiązywanie problemu "Circular Import Error" w Django przy relacjach między modelami Paczki a Użytkownika. \\ \hline
     \end{tabular}
 \end{table}
+
+\section{Implementacja heurystyki Nearest Neighbor dla problemu CVRP}
+
+Heurystyka Najbliższego Sąsiada (Nearest Neighbor) dla problemu CVRP z ograniczeniem czasowym polega na iteracyjnym budowaniu tras. Algorytm wybiera najbliższy dostępny punkt, pod warunkiem, że pojazd posiada wystarczającą ładowność, a powrót do bazy nie spowoduje przekroczenia limitu 12 godzin pracy.
+
+\subsection*{Kod źródłowy w języku Python}
+
+\begin{verbatim}
+import math
+
+def calculate_distance(p1, p2):
+    return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+def solve_cvrp_nn(depot, customers, max_capacity, max_time_hrs):
+    # customers: {id: (x, y, demand, service_time)}
+    # max_time_hrs: limit czasu w godzinach (np. 12)
+    
+    unvisited = set(customers.keys())
+    routes = []
+    current_route = []
+    
+    while unvisited:
+        current_node = depot
+        current_capacity = 0
+        current_time = 0
+        route = []
+        
+        while unvisited:
+            # Szukanie najbliższego sąsiada
+            nearest = None
+            min_dist = float('inf')
+            
+            for c_id in unvisited:
+                coords = (customers[c_id][0], customers[c_id][1])
+                dist = calculate_distance(current_node, coords)
+                
+                # Sprawdzenie ograniczeń: ładowność i czas (wraz z powrotem do bazy)
+                demand = customers[c_id][2]
+                service_time = customers[c_id][3]
+                dist_to_depot = calculate_distance(coords, depot)
+                
+                # Zakładamy prędkość 1 jednostka dystansu / 1 jednostka czasu
+                potential_time = current_time + dist + service_time + dist_to_depot
+                
+                if current_capacity + demand <= max_capacity and potential_time <= max_time_hrs:
+                    if dist < min_dist:
+                        min_dist = dist
+                        nearest = c_id
+            
+            if nearest is None:
+                break # Brak możliwości dodania kolejnego punktu do tej trasy
+            
+            # Aktualizacja stanu trasy
+            route.append(nearest)
+            current_capacity += customers[nearest][2]
+            current_time += min_dist + customers[nearest][3]
+            current_node = (customers[nearest][0], customers[nearest][1])
+            unvisited.remove(nearest)
+            
+        routes.append(route)
+        
+    return routes
+
+# Przykład użycia:
+depot_coords = (0, 0)
+# format: {id: (x, y, demand, service_time)}
+data = {1: (2, 3, 10, 0.5), 2: (5, 5, 15, 1.0), 3: (-1, 8, 5, 0.5)}
+result = solve_cvrp_nn(depot_coords, data, 20, 12)
+print(f"Trasy: {result}")
+\end{verbatim}
+
+\subsection*{Kluczowe założenia}
+\begin{itemize}
+    \item \textbf{Ograniczenie czasowe:} Algorytm weryfikuje czas powrotu do bazy przed dodaniem klienta do trasy ($potential\_time \le 12$).
+    \item \textbf{Pojemność:} Suma zapotrzebowania ($demand$) nie może przekroczyć $max\_capacity$.
+    \item \textbf{Złożoność:} Heurystyka ta jest szybka ($O(n^2)$), ale nie gwarantuje rozwiązania optymalnego.
+\end{itemize}
+
+\section{Projekt bazy danych systemu kurierskiego w Django ORM}
+
+Poniższy projekt uwzględnia kluczowe relacje: przypisanie paczek do użytkowników, lokalizację magazynów, oraz logistyczne powiązanie tras z magazynami i przesyłkami.
+
+\subsection*{Modele danych (models.py)}
+
+\begin{verbatim}
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+class User(AbstractUser):
+    """Rozszerzony model użytkownika (klient, kurier, manager)"""
+    ROLE_CHOICES = (
+        ('customer', 'Klient'),
+        ('courier', 'Kurier'),
+        ('manager', 'Manager Magazynu'),
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    phone = models.CharField(max_length=15)
+
+class Warehouse(models.Model):
+    """Model magazynu / punktu przeładunkowego"""
+    name = models.CharField(max_length=100)
+    address = models.TextField()
+    city = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
+
+class Route(models.Model):
+    """Model trasy przypisanej do kuriera i magazynu"""
+    courier = models.ForeignKey(User, on_delete=models.SET_NULL, 
+                               null=True, related_name='routes')
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
+    start_time = models.DateTimeField()
+    is_completed = models.BooleanField(default=False)
+
+class Package(models.Model):
+    """Model przesyłki z powiązaniami relacyjnymi"""
+    tracking_number = models.CharField(max_length=50, unique=True)
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, 
+                               related_name='sent_packages')
+    receiver_name = models.CharField(max_length=255)
+    
+    # Relacje kluczowe
+    current_warehouse = models.ForeignKey(Warehouse, on_delete=models.SET_NULL, 
+                                         null=True, blank=True)
+    current_route = models.ForeignKey(Route, on_delete=models.SET_NULL, 
+                                     null=True, blank=True, related_name='packages')
+    
+    STATUS_CHOICES = (
+        ('in_transit', 'W transporcie'),
+        ('in_warehouse', 'W magazynie'),
+        ('delivered', 'Dostarczona'),
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    weight = models.DecimalField(max_digits=5, decimal_places=2)
+\end{verbatim}
+
+\subsection*{Opis relacji i struktury}
+
+\begin{itemize}
+    \item \textbf{User $\leftrightarrow$ Package}: Relacja One-to-Many (jeden użytkownik może wysłać wiele paczek).
+    \item \textbf{Warehouse $\leftrightarrow$ Route}: Relacja One-to-Many (trasa zawsze zaczyna się w konkretnym magazynie).
+    \item \textbf{Route $\leftrightarrow$ Package}: Relacja One-to-Many (trasa grupuje wiele paczek przypisanych do jednego kuriera w danym oknie czasowym).
+    \item \textbf{User (Kurier) $\leftrightarrow$ Route}: Relacja określająca, który pracownik jest odpowiedzialny za realizację konkretnego przejazdu.
+\end{itemize}
+
+\section{Konfiguracja Docker Compose dla stosu Django, Next.js, PostgreSQL i Redis}
+
+Poniższy plik definiuje pełne środowisko uruchomieniowe, zapewniając izolację usług oraz komunikację wewnątrz sieci Dockerowej.
+
+\subsection*{Plik docker-compose.yml}
+
+\begin{verbatim}
+version: '3.8'
+
+services:
+  # Baza danych PostgreSQL
+  db:
+    image: postgres:15-alphine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+  # Broker wiadomości Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Backend Django
+  backend:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  # Frontend Next.js
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+\end{verbatim}
+
+\subsection*{Kluczowe aspekty konfiguracji}
+
+\begin{itemize}
+    \item \textbf{Networking:} Docker Compose automatycznie tworzy sieć, w której usługi komunikują się po nazwach (np. \texttt{backend} łączy się z \texttt{db:5432}).
+    \item \textbf{Persystencja danych:} Użycie wolumenu \texttt{postgres\_data} gwarantuje, że dane bazy nie zostaną utracone po zatrzymaniu kontenerów.
+    \item \textbf{Zależności:} Dyrektywa \texttt{depends\_on} zapewnia odpowiednią kolejność uruchamiania usług (najpierw baza i Redis, potem aplikacja).
+    \item \textbf{Hot-reloading:} Dzięki podmontowaniu wolumenów lokalnych (\texttt{./backend:/app}), zmiany w kodzie są odzwierciedlane w czasie rzeczywistym bez przebudowy obrazu.
+\end{itemize}
+
+\section{Grupowanie punktów GPS za pomocą algorytmu K-Means}
+
+Algorytm K-Means (K-średnich) jest jedną z najpopularniejszych metod uczenia nienadzorowanego, wykorzystywaną w logistyce do automatycznego podziału punktów (np. paczkomatów) na optymalne strefy dostaw.
+
+\subsection*{Logika działania w logistyce}
+
+1. \textbf{Inicjalizacja:} Wybieramy liczbę $k$ (liczba kurierów lub stref) oraz losujemy początkowe środki ciężkości (centroidy).
+2. \textbf{Przypisanie:} Każdy punkt GPS zostaje przypisany do najbliższego centroidu na podstawie odległości euklidesowej.
+3. \textbf{Aktualizacja:} Nowy środek strefy jest obliczany jako średnia współrzędnych wszystkich przypisanych do niej punktów.
+4. \textbf{Powtórzenie:} Proces trwa do momentu stabilizacji stref lub osiągnięcia limitu iteracji.
+
+\subsection*{Implementacja w Python (scikit-learn)}
+
+\begin{verbatim}
+import numpy as np
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+
+# Przykładowe współrzędne GPS paczkomatów (szerokość, długość)
+points = np.array([
+    [52.2297, 21.0122], [52.2350, 21.0150], [52.2400, 21.0300], # Warszawa Centrum
+    [50.0647, 19.9450], [50.0610, 19.9370], [50.0700, 19.9550], # Kraków
+    [51.1079, 17.0385], [51.1100, 17.0400], [51.1200, 17.0500]  # Wrocław
+])
+
+# Definiujemy liczbę stref (np. 3 miasta/regiony)
+num_zones = 3
+
+# Model K-Means
+kmeans = KMeans(n_clusters=num_zones, random_state=42, n_init=10)
+kmeans.fit(points)
+
+# Wyniki
+labels = kmeans.labels_  # Indeks strefy dla każdego punktu
+centroids = kmeans.cluster_centers_  # Centra logistyczne stref
+
+print(f"Przypisanie punktów do stref: {labels}")
+print(f"Współrzędne centrów stref: \n{centroids}")
+\end{verbatim}
+
+\subsection*{Zastosowanie praktyczne}
+
+\begin{itemize}
+    \item \textbf{Optymalizacja lokalizacji magazynu:} Centroidy mogą wskazywać idealne miejsce na postawienie mikro-hubu przeładunkowego.
+    \item \textbf{Zrównoważenie obciążenia:} Dobierając wagę punktów (np. liczba paczek), można modyfikować algorytm (Weighted K-Means), aby strefy były równe pod względem wolumenu, a nie tylko obszaru.
+    \item \textbf{Ograniczenia:} Klasyczny K-Means używa odległości w linii prostej. W logistyce miejskiej warto rozważyć macierz czasu przejazdu (Routing Distance) zamiast euklidesowej.
+\end{itemize}
+
+\section{Bezpieczne uwierzytelnianie w DRF z użyciem ciasteczek HttpOnly}
+
+Przechowywanie tokenów (np. JWT) w \texttt{localStorage} jest podatne na ataki XSS. Bezpieczniejszym podejściem jest przesyłanie tokena w ciasteczku z flagą \texttt{HttpOnly}, dzięki czemu skrypty JavaScript nie mają do niego dostępu.
+
+\subsection*{1. Implementacja Custom Authentication (backend)}
+
+Musimy nadpisać domyślną klasę autoryzacji, aby DRF szukał tokena w ciasteczkach zamiast w nagłówku \texttt{Authorization}.
+
+\begin{verbatim}
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.response import Response
+
+class CookieJWTAuthentication(JWTAuthentication):
+    def authenticate(self, request):
+        # Pobranie tokena z ciasteczka o nazwie 'access_token'
+        raw_token = request.COOKIES.get('access_token')
+        if raw_token is None:
+            return None
+
+        validated_token = self.get_validated_token(raw_token)
+        return self.get_user(validated_token), validated_token
+\end{verbatim}
+
+\subsection*{2. Logowanie i ustawianie ciasteczka}
+
+Widok logowania musi ręcznie ustawić ciasteczko w odpowiedzi HTTP.
+
+\begin{verbatim}
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+
+class LoginView(APIView):
+    def post(self, request):
+        # (Tutaj walidacja użytkownika, np. authenticate())
+        user = ... 
+        
+        refresh = RefreshToken.for_user(user)
+        response = Response({"message": "Zalogowano pomyślnie"})
+        
+        # Ustawienie ciasteczka HttpOnly
+        response.set_cookie(
+            key='access_token',
+            value=str(refresh.access_token),
+            httponly=True,
+            secure=True,     # Wymaga HTTPS
+            samesite='Lax'   # Ochrona przed CSRF
+        )
+        return response
+\end{verbatim}
+
+\subsection*{Kluczowe aspekty bezpieczeństwa}
+
+\begin{itemize}
+    \item \textbf{HttpOnly:} Flaga uniemożliwia dostęp do ciasteczka poprzez \texttt{document.cookie}.
+    \item \textbf{Secure:} Ciasteczko jest przesyłane wyłącznie przez szyfrowany protokół HTTPS.
+    \item \textbf{SameSite (Lax/Strict):} Chroni przed atakami Cross-Site Request Forgery (CSRF), ograniczając wysyłanie ciasteczek w zapytaniach międzywitrynowych.
+    \item \textbf{CSRF Token:} Przy użyciu ciasteczek do sesji, należy dodatkowo zaimplementować mechanizm \texttt{X-CSRFToken} dla metod modyfikujących dane (POST, PUT, DELETE).
+\end{itemize}
