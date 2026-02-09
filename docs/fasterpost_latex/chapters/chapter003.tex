@@ -25,14 +25,38 @@ Wizualizację logiczną struktury systemu oraz zależności między kluczowymi k
 Decyzje technologiczne zostały podjęte w oparciu o wymagania dotyczące wydajności, bezpieczeństwa typów danych oraz szybkości wytwarzania oprogramowania.
 
 \subsection{Warstwa serwerowa (Backend)}
-Fundamentem systemu jest język \textbf{Python 3.12} współpracujący z frameworkiem \textbf{Django 5.0}. Wybór ten podyktowany był dojrzałością ekosystemu oraz wbudowanymi mechanizmami bezpieczeństwa (ochrona przed atakami CSRF, SQL Injection).
+Fundamentem systemu jest język \textbf{Python 3.12} współpracujący z frameworkiem \textbf{Django 5.0}. Wybór ten podyktowany był dojrzałością ekosystemu oraz wbudowanymi mechanizmami bezpieczeństwa (ochrona przed atakami CSRF, SQL Injection). W projekcie \textbf{FasterPost} backend pełni rolę centralnego huba logiki biznesowej, integrując zaawansowane algorytmy logistyczne z systemem zarządzania przesyłkami.
+
+Kluczowe komponenty backendu to:
 \begin{itemize}
-    \item \textbf{Django REST Framework (DRF):} Wykorzystany do budowy ustandaryzowanego API, obsługi serializacji danych oraz autoryzacji opartej na tokenach.
-    \item \textbf{Celery \& Redis:} Zastosowane do obsługi zadań asynchronicznych i kolejkowania (np. generowanie tras, wysyłka e-maili), co zapobiega blokowaniu głównego wątku aplikacji podczas skomplikowanych obliczeń logistycznych.
+    \item \textbf{Django REST Framework (DRF):} Wykorzystany do budowy ustandaryzowanego API, obsługi serializacji danych oraz autoryzacji. W projekcie zaimplementowano niestandardowy mechanizm uwierzytelniania oparty na bezpiecznych ciasteczkach \texttt{HttpOnly}, co znacząco podnosi poziom bezpieczeństwa w porównaniu do standardowego przechowywania tokenów w \texttt{localStorage}. Zdefiniowano również dedykowane klasy uprawnień (np. \texttt{IsCourier}, \texttt{IsWarehouseManager}) sterujące dostępem do poszczególnych końcówek API.
+    \item \textbf{Celery \& Redis:} Zastosowane do obsługi zadań asynchronicznych i kolejkowania. W systemie FasterPost mechanizm ten jest kluczowy dla wydajności, obsługując m.in.:
+    \begin{itemize}
+        \item Wysyłkę powiadomień e-mail o zmianie statusu paczki.
+        \item Cykliczne zwalnianie wygasłych rezerwacji skrytek (zadania okresowe Celery Beat).
+    \end{itemize}
+    Dzięki temu główny wątek aplikacji pozostaje responsywny nawet przy dużym obciążeniu operacjami logistycznymi.
 \end{itemize}
 
 \subsection{Warstwa prezentacji (Frontend)}
 Aplikacja kliencka została zrealizowana przy użyciu frameworka \textbf{Next.js} (bazującego na bibliotece React). Wykorzystano nowoczesny model routingu (App Router), co pozwoliło na intuicyjne odwzorowanie struktury URL do fizycznej struktury plików. Za warstwę wizualną odpowiada **Tailwind CSS**, umożliwiający szybkie stylowanie komponentów zgodnie z podejściem \textit{Utility-First}.
+
+\subsection{Konteneryzacja i środowisko (Docker)}
+Cały system został skonteneryzowany przy użyciu platformy \textbf{Docker}, co zapewnia spójność środowiska uruchomieniowego na każdym etapie wytwarzania oprogramowania (Development, Testing, Production). Wykorzystanie narzędzia \textbf{Docker Compose} pozwoliło na definicję wielokontenerowej architektury w pojedynczym pliku konfiguracyjnym, obejmującym:
+\begin{itemize}
+    \item Kontener aplikacji backendowej (Django + Gunicorn).
+    \item Kontener aplikacji frontendowej (Next.js).
+    \item Bazę danych PostgreSQL.
+    \item Broker wiadomości Redis oraz workerów Celery.
+\end{itemize}
+Dzięki takiemu podejściu wyeliminowano problem środowisk, a proces wdrożenia sprowadza się do uruchomienia jednej komendy budującej obrazy.
+
+\subsection{Integracja płatności (Stripe)}
+Obsługa płatności online została zrealizowana poprzez integrację z platformą \textbf{Stripe}. Proces ten jest kluczowy dla automatyzacji przepływu paczek, gdyż dopiero opłacenie przesyłki aktywuje procesy logistyczne. Implementacja obejmuje dwa główne mechanizmy:
+\begin{itemize}
+    \item \textbf{Payment Intents API:} Służące do bezpiecznego inicjowania transakcji po stronie klienta bez konieczności przetwarzania danych kart płatniczych przez serwery FasterPost (zgodność ze standardem PCI DSS).
+    \item \textbf{Webhooks:} Asynchroniczny mechanizm powiadomień, w którym serwery Stripe wysyłają do backendu FasterPost informację o zmianie statusu płatności (np. \texttt{payment\_intent.succeeded}). Odebranie takiego sygnału automatycznie zmienia status paczki na „Opłacona” (\texttt{PAID}) i uruchamia proces rezerwacji skrytki.
+\end{itemize}
 
 \section{Projekt warstwy danych (ORM)}
 

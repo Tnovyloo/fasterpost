@@ -25,44 +25,51 @@ Sieć obejmująca własne automaty oraz punkty partnerskie. Obsługa procesów n
 
 \section{Wymagania funkcjonalne}
 
-Na podstawie analizy potrzeb użytkowników zdefiniowano następujące wymagania funkcjonalne systemu:
+Na podstawie analizy potrzeb użytkowników zdefiniowano następujące wymagania funkcjonalne systemu, które przedstawiono w Tabeli \ref{tab:wymagania_funkcjonalne}.
 
-\subsection{Obsługa użytkowników}
+\begin{tabularx}{\textwidth}{|l|>{\raggedright\arraybackslash}X|}
+\caption{Zestawienie wymagań funkcjonalnych} \label{tab:wymagania_funkcjonalne} \\
+\hline
+\textbf{Moduł} & \textbf{Wymagania} \\ \hline
+\endfirsthead
+\hline
+\textbf{Moduł} & \textbf{Wymagania} \\ \hline
+\endhead
+\hline
+\endfoot
+Obsługa użytkowników &
 \begin{itemize}
     \item Rejestracja i logowanie użytkowników (klientów, kurierów, administratorów) poprzez zunifikowany panel.
     \item Edycja danych profilowych (dane kontaktowe, ustawienia bezpieczeństwa).
     \item Weryfikacja tożsamości poprzez wiadomość e-mail.
-\end{itemize}
-
-\subsection{Obsługa paczek}
+\end{itemize} \\ \hline
+Obsługa paczek &
 \begin{itemize}
     \item Tworzenie przesyłki poprzez interaktywny formularz.
     \item Generowanie etykiety nadawczej z unikalnym numerem śledzenia (Tracking ID).
     \item Wybór paczkomatu nadawczego i docelowego z mapy.
     \item Śledzenie statusu przesyłki w czasie rzeczywistym.
     \item Obsługa płatności online oraz kalkulator kosztów w zależności od gabarytu (S, M, L).
-\end{itemize}
-
-\subsection{System kuriera}
+\end{itemize} \\ \hline
+System kuriera &
 \begin{itemize}
     \item Automatyczne planowanie optymalnej trasy na podstawie lokalizacji paczkomatów.
     \item Podgląd listy przesyłek przypisanych do bieżącego zlecenia (manifest).
     \item Mobilna obsługa zmiany statusów (np. „Odebrano z magazynu”, „Umieszczono w skrytce”).
-\end{itemize}
-
-\subsection{Panel administracyjny}
+\end{itemize} \\ \hline
+Panel administracyjny &
 \begin{itemize}
     \item Zarządzanie bazą użytkowników, paczek i kurierów (operacje CRUD).
     \item Podgląd raportów błędów, statystyk dostaw i obciążenia poszczególnych maszyn.
     \item Konfiguracja parametrów globalnych systemu.
-\end{itemize}
-
-\subsection{System paczkomatowy}
+\end{itemize} \\ \hline
+System paczkomatowy &
 \begin{itemize}
     \item Dynamiczna rezerwacja skrytki w momencie opłacenia przesyłki.
     \item Zdalne otwieranie skrytek z poziomu aplikacji.
     \item System powiadomień o gotowości paczki do odbioru.
-\end{itemize}
+\end{itemize} \\ \hline
+\end{tabularx}
 
 \section{Wymagania niefunkcjonalne}
 

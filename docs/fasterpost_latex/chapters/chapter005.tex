@@ -26,21 +26,24 @@ Poniższa tabela (Tab. \ref{tab:rtm}) przedstawia powiązanie zdefiniowanych wym
     \centering
     \caption{Macierz Śledzenia Wymagań (Requirements Traceability Matrix)}
     \label{tab:rtm}
-    \small % Zmniejszenie fontu, aby tabela była bardziej zwarta
-    \renewcommand{\arraystretch}{1.3} % Lekkie zwiększenie odstępów w wierszach dla czytelności
-    \begin{tabularx}{\textwidth}{|c|p{3.5cm}|p{3.5cm}|X|}
+    \small 
+    \renewcommand{\arraystretch}{1.5} % Większy odstęp dla lepszej czytelności przy łamaniu wierszy
+    
+    % Definiujemy proporcje kolumn: hsize=0.8 to 80% standardowej szerokości X, itd.
+    % Suma wszystkich hsize musi równać się liczbie kolumn typu X (tutaj 3).
+    \begin{tabularx}{\textwidth}{|c|>{\hsize=0.9\hsize\raggedright\arraybackslash}X|>{\hsize=0.9\hsize\ttfamily\raggedright\arraybackslash}X|>{\hsize=1.2\hsize\raggedright\arraybackslash}X|}
         \hline
         \textbf{ID} & \textbf{Wymaganie Funkcjonalne} & \textbf{Klasa / Plik Testowy} & \textbf{Cel testu i weryfikacja} \\ \hline
-        FR-01 & Rejestracja użytkownika i walidacja haseł & \texttt{RegistrationTestCase} & Sprawdzenie unikalności e-mail oraz walidacja długości i siły hasła. \\ \hline
-        FR-02 & Weryfikacja konta przez e-mail & \texttt{EmailVerificationTestCase} & Weryfikacja działania tokenów aktywacyjnych oraz ich wygasania. \\ \hline
-        FR-03 & Logowanie i zarządzenie sesją & \texttt{LoginTestCase} & Sprawdzenie poprawności generowania i rotacji tokenów dostępu. \\ \hline
-        FR-04 & Wylogowanie użytkownika & \texttt{LogoutTestCase} & Weryfikacja unieważnienia tokena sesji po stronie serwera. \\ \hline
-        FR-05 & Odzyskiwanie dostępu do konta & \texttt{PasswordResetTestCase} & Test pełnego procesu zmiany zapomnianego hasła przez e-mail. \\ \hline
-        FR-06 & Bezpieczeństwo sesji (Expiring Token) & \texttt{ExpiringTokenTestCase} & Weryfikacja automatycznej deautoryzacji po wygaśnięciu tokena. \\ \hline
-        FR-07 & Konfiguracja 2FA (TOTP) & \texttt{TOTPViewTestCase} & Sprawdzenie generowania sekretów TOTP i weryfikacji kodów. \\ \hline
-        FR-08 & Logowanie z drugim składnikiem (MFA) & \texttt{LoginTOTPTestCase} & Wymuszenie podania kodu TOTP podczas procesu logowania (status 206). \\ \hline
-        FR-09 & Logistyka: Priorytetyzacja FIFO & \texttt{LocalRoutingServiceTests} & Alokacja paczek w szafkach z uwzględnieniem czasu przybycia do magazynu. \\ \hline
-        FR-10 & Logistyka: Obsługa punktów PUDO & \texttt{LocalRoutingServiceTests} & Realizacja dostaw do punktów bez wymogu posiadania wolnej skrytki. \\ \hline
+        FR-01 & Rejestracja użytkownika i walidacja haseł & Registration\-Test\-Case & Sprawdzenie unikalności e-mail oraz walidacja długości i siły hasła. \\ \hline
+        FR-02 & Weryfikacja konta przez e-mail & Email\-Verification\-Test\-Case & Weryfikacja działania tokenów aktywacyjnych oraz ich wygasania. \\ \hline
+        FR-03 & Logowanie i zarządzenie sesją & Login\-Test\-Case & Sprawdzenie poprawności generowania i rotacji tokenów dostępu. \\ \hline
+        FR-04 & Wylogowanie użytkownika & Logout\-Test\-Case & Weryfikacja unieważnienia tokena sesji po stronie serwera. \\ \hline
+        FR-05 & Odzyskiwanie dostępu do konta & Password\-Reset\-Test\-Case & Test pełnego procesu zmiany zapomnianego hasła przez e-mail. \\ \hline
+        FR-06 & Bezpieczeństwo sesji (Expiring Token) & Expiring\-Token\-Test\-Case & Weryfikacja automatycznej deautoryzacji po wygaśnięciu tokena. \\ \hline
+        FR-07 & Konfiguracja 2FA (TOTP) & TOTP\-View\-Test\-Case & Sprawdzenie generowania sekretów TOTP i weryfikacji kodów. \\ \hline
+        FR-08 & Logowanie z drugim składnikiem (MFA) & Login\-TOTP\-Test\-Case & Wymuszenie podania kodu TOTP podczas procesu logowania (status 206). \\ \hline
+        FR-09 & Logistyka: Priorytetyzacja FIFO & Local\-Routing\-Service\-Tests & Alokacja paczek w szafkach z uwzględnieniem czasu przybycia do magazynu. \\ \hline
+        FR-10 & Logistyka: Obsługa punktów PUDO & Local\-Routing\-Service\-Tests & Realizacja dostaw do punktów bez wymogu posiadania wolnej skrytki. \\ \hline
     \end{tabularx}
 \end{table}
 

@@ -14,7 +14,7 @@ Implementacja znajduje się w klasie \texttt{RoutingService} w module \texttt{lo
 
 \subsection{Heurystyka Najbliższego Sąsiada (Nearest Neighbor)}
 
-Ze względu na złożoność obliczeniową problemu CVRP (NP-trudny), zastosowano podejście heurystyczne typu zachłannego (Greedy). Metoda \texttt{\_build\_optimized\_tour} iteracyjnie wybiera najbliższy magazyn docelowy, do którego kurier może dotrzeć, nie przekraczając limitu czasu pracy.
+Ze względu na złożoność obliczeniową problemu CVRP (NP-trudny), zastosowano podejście heurystyczne typu zachłannego (ang. greedy algorithm). Metoda \texttt{\_build\_optimized\_tour} iteracyjnie wybiera najbliższy magazyn docelowy, do którego kurier może dotrzeć, nie przekraczając limitu czasu pracy.
 
 \begin{lstlisting}[language=Python, caption=Fragment algorytmu wyboru kolejnego celu w logistyce krajowej]
 while remaining_dests:
@@ -35,7 +35,7 @@ System wykorzystuje również algorytm przeszukiwania wszerz (BFS) zaimplementow
 
 \section{Logistyka lokalna: Ostatnia mila i TSP}
 
-Logistyka lokalna (\textit{Last Mile Delivery}) obsługiwana jest przez klasę \texttt{LocalRoutingService}. Proces ten składa się z trzech etapów: grupowania przesyłek według stref, alokacji skrytek oraz wyznaczania optymalnej trasy kuriera.
+Logistyka lokalna (\textit{ang. last mile delivery}) obsługiwana jest przez klasę \texttt{LocalRoutingService}. Proces ten składa się z trzech etapów: grupowania przesyłek według stref, alokacji skrytek oraz wyznaczania optymalnej trasy kuriera.
 
 \subsection{Klasteryzacja i podział na strefy}
 
@@ -51,13 +51,21 @@ for pkg in local_packages:
         packages_by_zone[zone.id].append(pkg)
 \end{lstlisting}
 
-\subsection{Algorytm TSP i formuła Haversine'a}
+\subsection{Teoretyczne ujęcie problemu komiwojażera (TSP)}
 
-Dla każdej strefy generowana jest trasa realizująca problem komiwojażera (TSP). Podobnie jak w logistyce krajowej, zastosowano algorytm najbliższego sąsiada, co zapewnia szybki czas obliczeń przy akceptowalnej jakości tras dla lokalnych dystansów.
+Problem komiwojażera (ang. \textit{Travelling Salesman Problem}, TSP) to jedno z fundamentalnych zagadnień optymalizacyjnych w informatyce i badaniach operacyjnych. W swojej klasycznej postaci problem ten formułuje się następująco: mając daną listę miast oraz odległości między każdą parą z nich, należy wyznaczyć najkrótszą trasę, która odwiedza każde miasto dokładnie raz i kończy się w punkcie startowym.
 
-Odległości między punktami (Paczkomatami) obliczane są przy użyciu formuły Haversine'a, która uwzględnia krzywiznę Ziemi, co jest kluczowe przy wykorzystaniu współrzędnych geograficznych (GPS).
+Z matematycznego punktu widzenia, TSP modeluje się przy użyciu grafu ważonego $G = (V, E)$, gdzie $V$ oznacza zbiór wierzchołków (punktów dostaw), a $E$ zbiór krawędzi o określonych wagach (kosztach przejazdu). Rozwiązaniem problemu jest znalezienie cyklu Hamiltona o minimalnej sumie wag krawędzi.
 
-\begin{lstlisting}[language=Python, caption=Implementacja formuły Haversine'a]
+Problem ten należy do klasy problemów NP-trudnych (ang. \textit{NP-hard}). Oznacza to, że nie jest znany algorytm, który potrafiłby znaleźć optymalne rozwiązanie w czasie wielomianowym dla dowolnych danych wejściowych. Wraz ze wzrostem liczby punktów $n$, liczba możliwych permutacji tras rośnie silniowo, co czyni przegląd zupełny (ang. \textit{brute-force}) niepraktycznym dla większych instancji. W zastosowaniach logistycznych, gdzie kluczowy jest czas odpowiedzi systemu, powszechnie stosuje się algorytmy heurystyczne lub metaheurystyczne, które pozwalają znaleźć rozwiązanie suboptymalne (wystarczająco dobre) w akceptowalnym czasie.
+
+\subsection{Implementacja algorytmu TSP i formuła Haversine'a}
+
+Dla każdej strefy generowana jest trasa realizująca problem komiwojażera (ang. travelling salesman problem, TSP). Podobnie jak w logistyce krajowej, zastosowano algorytm najbliższego sąsiada, co zapewnia szybki czas obliczeń przy akceptowalnej jakości tras dla lokalnych dystansów.
+
+Odległości między punktami (Paczkomatami) obliczane są przy użyciu wzoru Haversine'a, która uwzględnia krzywiznę Ziemi, co jest kluczowe przy wykorzystaniu współrzędnych geograficznych (GPS).
+
+\begin{lstlisting}[language=Python, caption=Implementacja wzoru Haversine'a]
 def _haversine(self, lat1, lon1, lat2, lon2):
     R = 6371.0  # Promien Ziemi w km
     dlat = math.radians(lat2 - lat1)
